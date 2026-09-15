@@ -31,8 +31,9 @@
               <td>
                 <span :class="['badge', p.ativo ? 'badge-success' : 'badge-danger']">{{ p.ativo ? 'Ativo' : 'Inativo' }}</span>
               </td>
-              <td v-if="ehAdmin" style="text-align:right;">
+              <td v-if="ehAdmin" style="text-align:right; white-space:nowrap;">
                 <button class="btn btn-ghost" @click="abrirEdicaoProcedimento(p)">Editar</button>
+                <button class="btn btn-danger" @click="confirmarExclusaoProcedimento(p)">Excluir</button>
               </td>
             </tr>
             <tr v-if="!filtrados.length"><td colspan="6" style="color:var(--ink-muted);">Nenhum procedimento encontrado.</td></tr>
@@ -57,8 +58,9 @@
                   {{ c.ativo ? 'Ativa' : 'Inativa' }}
                 </span>
               </td>
-              <td v-if="ehAdmin" style="text-align:right;">
+              <td v-if="ehAdmin" style="text-align:right; white-space:nowrap;">
                 <button class="btn btn-ghost" @click="abrirEdicaoCategoria(c)">Editar</button>
+                <button class="btn btn-danger" @click="confirmarExclusaoCategoria(c)">Excluir</button>
               </td>
             </tr>
             <tr v-if="!categorias.length"><td colspan="4" style="color:var(--ink-muted);">Nenhuma categoria cadastrada.</td></tr>
@@ -133,6 +135,22 @@
         </div>
       </div>
     </div>
+
+    <ConfirmarExclusao
+      v-if="excluindoProcedimento"
+      titulo="Excluir procedimento?"
+      mensagem="Se ele já estiver vinculado a agendamentos, pacotes ou comissões, prefira desativá-lo em vez de excluir."
+      @confirmar="excluirProcedimento"
+      @cancelar="excluindoProcedimento = null"
+    />
+
+    <ConfirmarExclusao
+      v-if="excluindoCategoria"
+      titulo="Excluir categoria?"
+      mensagem="Só é possível excluir categorias sem procedimentos cadastrados. Mova ou exclua os procedimentos antes."
+      @confirmar="excluirCategoria"
+      @cancelar="excluindoCategoria = null"
+    />
   </div>
 </template>
 
@@ -156,6 +174,8 @@ const erro = ref("");
 const modalCategoria = ref(false);
 const editandoCategoria = ref<any>({ nome: "", ativo: true });
 const erroCategoria = ref("");
+const excluindoProcedimento = ref<any>(null);
+const excluindoCategoria = ref<any>(null);
 
 const carregar = async () => {
   const [{ data: procs }, { data: cats }] = await Promise.all([
@@ -234,6 +254,34 @@ const salvarCategoria = async () => {
   modalCategoria.value = false;
   await carregar();
   sucesso(ehEdicao ? "Categoria atualizada com sucesso." : "Categoria criada com sucesso.");
+};
+
+const confirmarExclusaoProcedimento = (p: any) => { excluindoProcedimento.value = p; };
+const excluirProcedimento = async () => {
+  const { error } = await supabase.from("procedimentos").delete().eq("id", excluindoProcedimento.value.id);
+  excluindoProcedimento.value = null;
+  if (error) {
+    toastErro(error.code === "23503"
+      ? "Este procedimento está vinculado a agendamentos, pacotes ou comissões. Desative-o em vez de excluir."
+      : "Não foi possível excluir o procedimento.");
+    return;
+  }
+  await carregar();
+  sucesso("Procedimento excluído com sucesso.");
+};
+
+const confirmarExclusaoCategoria = (c: any) => { excluindoCategoria.value = c; };
+const excluirCategoria = async () => {
+  const { error } = await supabase.from("categorias").delete().eq("id", excluindoCategoria.value.id);
+  excluindoCategoria.value = null;
+  if (error) {
+    toastErro(error.code === "23503"
+      ? "Esta categoria possui procedimentos cadastrados. Mova ou exclua-os antes de remover a categoria."
+      : "Não foi possível excluir a categoria.");
+    return;
+  }
+  await carregar();
+  sucesso("Categoria excluída com sucesso.");
 };
 
 await carregar();

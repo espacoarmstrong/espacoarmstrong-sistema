@@ -20,14 +20,23 @@
             <td>{{ c.cargo || '—' }}</td>
             <td>{{ c.telefone || '—' }}</td>
             <td><span :class="['badge', c.ativo ? 'badge-success' : 'badge-danger']">{{ c.ativo ? 'Ativo' : 'Inativo' }}</span></td>
-            <td style="text-align:right;">
+            <td style="text-align:right; white-space:nowrap;">
               <NuxtLink :to="`/colaboradores/${c.id}`" class="btn btn-ghost">Gerenciar</NuxtLink>
+              <button v-if="ehAdmin" class="btn btn-danger" @click="confirmarExclusao(c)">Excluir</button>
             </td>
           </tr>
           <tr v-if="!colaboradores.length"><td colspan="6" style="color:var(--ink-muted);">Nenhum colaborador cadastrado.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <ConfirmarExclusao
+      v-if="excluindo"
+      titulo="Excluir colaborador?"
+      mensagem="O login de acesso também será removido. Se o colaborador tiver agendamentos ou remunerações, prefira desativá-lo em vez de excluir."
+      @confirmar="excluir"
+      @cancelar="excluindo = null"
+    />
 
     <div v-if="modalAberto" class="modal-backdrop" @click.self="modalAberto = false">
       <div class="modal">
@@ -78,6 +87,7 @@ const modalAberto = ref(false);
 const novo = ref({ nome: "", telefone: "", cargo: "", email: "", senha: "" });
 const erro = ref("");
 const salvando = ref(false);
+const excluindo = ref<any>(null);
 
 const carregar = async () => {
   const { data } = await supabase.from("colaboradores").select("*").order("nome");
@@ -106,6 +116,19 @@ const salvar = async () => {
     toastErro("Não foi possível criar o colaborador.");
   } finally {
     salvando.value = false;
+  }
+};
+
+const confirmarExclusao = (c: any) => { excluindo.value = c; };
+const excluir = async () => {
+  try {
+    await chamar(`/colaboradores/${excluindo.value.id}`, { method: "DELETE" });
+    excluindo.value = null;
+    await carregar();
+    sucesso("Colaborador excluído com sucesso.");
+  } catch (e: any) {
+    excluindo.value = null;
+    toastErro(e.message || "Não foi possível excluir o colaborador.");
   }
 };
 

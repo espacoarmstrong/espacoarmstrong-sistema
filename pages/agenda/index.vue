@@ -76,11 +76,24 @@
 
     <!-- VISÃO SEMANA -->
     <div v-if="visao === 'semana'" class="semana-grid">
-      <div v-for="d in diasDaSemana" :key="d.iso" class="dia-card card" @click="irParaData(d.iso)">
-        <span class="dia-card-dow">{{ d.diaSemana }}</span>
-        <span class="dia-card-num">{{ d.dia }}</span>
-        <span class="dia-card-contagem" v-if="contagemPorDia[d.iso]">{{ contagemPorDia[d.iso] }} atend.</span>
-        <span class="dia-card-contagem vazio" v-else>Livre</span>
+      <div v-for="d in diasDaSemana" :key="d.iso" class="dia-card card">
+        <div class="dia-card-cabeca" @click="irParaData(d.iso)">
+          <span class="dia-card-dow">{{ d.diaSemana }}</span>
+          <span class="dia-card-num">{{ d.dia }}</span>
+        </div>
+        <div class="dia-card-lista">
+          <div
+            v-for="a in agendamentosPorDia(d.iso)"
+            :key="a.id"
+            class="dia-card-item"
+            :class="'status-' + a.status"
+            @click="abrirEdicao(a)"
+          >
+            <strong>{{ formatarHora(a.data_hora) }}</strong> {{ a.clientes?.nome || '—' }}
+            <small>{{ primeiroNome(a.colaboradores?.nome || '') }} · {{ a.procedimentos?.nome || '—' }}</small>
+          </div>
+          <span v-if="!agendamentosPorDia(d.iso).length" class="dia-card-vazio">Livre</span>
+        </div>
       </div>
     </div>
 
@@ -103,16 +116,20 @@
         <h2 style="margin-bottom:16px;">{{ editando?.id ? 'Editar agendamento' : 'Novo agendamento' }}</h2>
         <div class="field">
           <label>Cliente</label>
-          <select v-model="editando.cliente_id" class="input">
+          <SeletorCliente v-model="editando.cliente_id" :clientes="clientes" />
+        </div>
+        <div class="field">
+          <label>Categoria</label>
+          <select v-model="editandoCategoriaId" class="input" @change="editando.procedimento_id = ''">
             <option value="" disabled>Selecione</option>
-            <option v-for="c in clientes" :key="c.id" :value="c.id">{{ c.nome }}</option>
+            <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nome }}</option>
           </select>
         </div>
         <div class="field">
           <label>Procedimento</label>
-          <select v-model="editando.procedimento_id" class="input">
-            <option value="" disabled>Selecione</option>
-            <option v-for="p in procedimentos" :key="p.id" :value="p.id">{{ p.nome }} ({{ p.duracao_minutos }} min)</option>
+          <select v-model="editando.procedimento_id" class="input" :disabled="!editandoCategoriaId">
+            <option value="" disabled>{{ editandoCategoriaId ? 'Selecione' : 'Escolha a categoria primeiro' }}</option>
+            <option v-for="p in procedimentosDaCategoria" :key="p.id" :value="p.id">{{ p.nome }} ({{ p.duracao_minutos }} min)</option>
           </select>
           <p v-if="procedimentoSelecionado" class="valor-procedimento">Valor do procedimento: <strong>{{ formatarValor(procedimentoSelecionado.valor) }}</strong></p>
         </div>
@@ -148,34 +165,32 @@
           <textarea v-model="editando.motivo_cancelamento" class="input" rows="2" placeholder="Ex.: Cliente desmarcou, imprevisto do colaborador..."></textarea>
         </div>
 
-        <template v-if="editando?.status === 'concluido'">
-          <div v-if="editando.forma_pagamento === 'pacote'" class="aviso-pacote">
-            Pago com crédito de pacote. Para alterar, exclua e recrie o pagamento em Comandas.
+        <div v-if="editando.forma_pagamento === 'pacote'" class="aviso-pacote">
+          Pago com crédito de pacote. Para alterar, exclua e recrie o pagamento em Comandas.
+        </div>
+        <template v-else>
+          <div v-if="saldoPacoteDisponivel.length" class="caixa-pacote">
+            <p style="margin:0 0 6px;">
+              Este cliente tem crédito de pacote para este procedimento
+              (<strong>{{ saldoPacoteDisponivel[0].pacote_nome }}</strong>, válido até {{ formatarDataCurta(saldoPacoteDisponivel[0].data_validade) }}).
+            </p>
+            <label class="linha-check" style="padding:0;">
+              <input type="checkbox" v-model="usarPacote" />
+              Pagar com crédito do pacote{{ editando?.status === 'concluido' ? ' (sem cobrar valor agora)' : ' (já reservar o crédito para este agendamento)' }}
+            </label>
           </div>
-          <template v-else>
-            <div v-if="saldoPacoteDisponivel.length" class="caixa-pacote">
-              <p style="margin:0 0 6px;">
-                Este cliente tem crédito de pacote para este procedimento
-                (<strong>{{ saldoPacoteDisponivel[0].pacote_nome }}</strong>, válido até {{ formatarDataCurta(saldoPacoteDisponivel[0].data_validade) }}).
-              </p>
-              <label class="linha-check" style="padding:0;">
-                <input type="checkbox" v-model="usarPacote" />
-                Pagar com crédito do pacote (sem cobrar valor agora)
-              </label>
-            </div>
 
-            <template v-if="!usarPacote">
-              <div class="field" v-if="podeAcao('comanda_aplicar_desconto')">
-                <label>Desconto (R$)</label>
-                <input v-model.number="editandoDesconto" type="number" min="0" step="0.01" class="input" />
-                <p class="valor-procedimento">Total a pagar: <strong>{{ formatarValor(totalAPagarEdicao) }}</strong></p>
-              </div>
-              <div class="field">
-                <label>Pagamento (opcional — pode registrar depois em Comandas)</label>
-                <FormaPagamentoMultipla v-if="mostrarPagamento" v-model="editandoPagamentos" :total="totalAPagarEdicao" />
-                <button v-else type="button" class="btn btn-ghost" style="padding:6px 10px; font-size:13px;" @click="mostrarPagamento = true">+ Registrar pagamento agora</button>
-              </div>
-            </template>
+          <template v-if="!usarPacote && editando?.status === 'concluido'">
+            <div class="field" v-if="podeAcao('comanda_aplicar_desconto')">
+              <label>Desconto (R$)</label>
+              <input v-model.number="editandoDesconto" type="number" min="0" step="0.01" class="input" />
+              <p class="valor-procedimento">Total a pagar: <strong>{{ formatarValor(totalAPagarEdicao) }}</strong></p>
+            </div>
+            <div class="field">
+              <label>Pagamento (opcional — pode registrar depois em Comandas)</label>
+              <FormaPagamentoMultipla v-if="mostrarPagamento" v-model="editandoPagamentos" :total="totalAPagarEdicao" />
+              <button v-else type="button" class="btn btn-ghost" style="padding:6px 10px; font-size:13px;" @click="mostrarPagamento = true">+ Registrar pagamento agora</button>
+            </div>
           </template>
         </template>
 
@@ -269,6 +284,8 @@ const dataAtual = ref(hojeLocal());
 const colaboradores = ref<any[]>([]);
 const clientes = ref<any[]>([]);
 const procedimentos = ref<any[]>([]);
+const categorias = ref<any[]>([]);
+const editandoCategoriaId = ref("");
 const agendamentos = ref<any[]>([]);
 const bloqueios = ref<any[]>([]);
 const contagemPorDia = ref<Record<string, number>>({});
@@ -286,6 +303,7 @@ const usarPacote = ref(false);
 const saldoPacoteDisponivel = ref<any[]>([]);
 
 const procedimentoSelecionado = computed(() => procedimentos.value.find((p) => p.id === editando.value.procedimento_id));
+const procedimentosDaCategoria = computed(() => procedimentos.value.filter((p) => p.categoria_id === editandoCategoriaId.value));
 const totalAPagarEdicao = computed(() => (procedimentoSelecionado.value?.valor || 0) - (editandoDesconto.value || 0));
 const formatarValor = (v: number) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const formatarDataCurta = (data: string) => {
@@ -297,7 +315,7 @@ const formatarDataCurta = (data: string) => {
 const verificarSaldoPacote = async () => {
   usarPacote.value = false;
   saldoPacoteDisponivel.value = [];
-  if (editando.value.status !== "concluido" || editando.value.forma_pagamento === "pacote") return;
+  if (editando.value.forma_pagamento === "pacote") return;
   if (!editando.value.cliente_id || !editando.value.procedimento_id) return;
   const { data } = await supabase
     .from("pacote_venda_itens")
@@ -372,14 +390,16 @@ const irParaData = (iso: string) => { dataAtual.value = iso; visao.value = "dia"
 
 // ---------- carregamento ----------
 const carregarBase = async () => {
-  const [{ data: col }, { data: cli }, { data: proc }] = await Promise.all([
+  const [{ data: col }, { data: cli }, { data: proc }, { data: cat }] = await Promise.all([
     supabase.from("colaboradores").select("id, nome, foto_url").eq("ativo", true).order("nome"),
-    supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("procedimentos").select("id, nome, duracao_minutos, valor").eq("ativo", true).order("nome"),
+    supabase.from("clientes").select("id, nome, telefone").eq("ativo", true).order("nome"),
+    supabase.from("procedimentos").select("id, nome, categoria_id, duracao_minutos, valor").eq("ativo", true).order("nome"),
+    supabase.from("categorias").select("id, nome").eq("ativo", true).order("nome"),
   ]);
   colaboradores.value = col || [];
   clientes.value = cli || [];
   procedimentos.value = proc || [];
+  categorias.value = cat || [];
 };
 
 const carregarPeriodo = async () => {
@@ -420,8 +440,13 @@ const iniciais = (nome: string) => (nome || "").trim().split(/\s+/).slice(0, 2).
 const primeiroNome = (nome: string) => (nome || "").split(" ")[0];
 const formatarHora = (v: string) => new Date(v).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
+const agendamentosPorDia = (iso: string) =>
+  agendamentos.value
+    .filter((a) => chaveLocal(new Date(a.data_hora)) === iso)
+    .sort((a, b) => a.data_hora.localeCompare(b.data_hora));
+
 const agendamentosDoColaborador = (colaboradorId: string) =>
-  agendamentos.value.filter((a) => a.colaborador_id === colaboradorId && chaveLocal(new Date(a.data_hora)) === dataAtual.value && a.status !== "cancelado");
+  agendamentos.value.filter((a) => a.colaborador_id === colaboradorId && chaveLocal(new Date(a.data_hora)) === dataAtual.value);
 
 const bloqueiosDoColaborador = (colaboradorId: string) =>
   bloqueios.value.filter((b) => b.colaborador_id === colaboradorId && chaveLocal(new Date(b.data_inicio)) === dataAtual.value);
@@ -467,6 +492,7 @@ const cliqueGrade = (evt: MouseEvent, colaborador: any) => {
 // ---------- CRUD agendamento ----------
 const abrirNovo = (colaboradorId = "", hora = "09:00") => {
   editando.value = { cliente_id: "", procedimento_id: "", colaborador_id: colaboradorId, observacoes: "", status: "agendado", motivo_cancelamento: "" };
+  editandoCategoriaId.value = "";
   editandoData.value = dataAtual.value;
   editandoHora.value = hora;
   editandoPagamentos.value = [];
@@ -480,6 +506,7 @@ const abrirNovo = (colaboradorId = "", hora = "09:00") => {
 
 const abrirEdicao = async (a: any) => {
   editando.value = { ...a, motivo_cancelamento: a.motivo_cancelamento || "" };
+  editandoCategoriaId.value = procedimentos.value.find((p) => p.id === a.procedimento_id)?.categoria_id || "";
   const dt = new Date(a.data_hora);
   editandoData.value = chaveLocal(dt);
   editandoHora.value = dt.toTimeString().slice(0, 5);
@@ -537,7 +564,7 @@ const salvar = async () => {
   const { error } = await query;
   if (error) { erro.value = error.message; toastErro("Não foi possível salvar o agendamento."); return; }
 
-  if (editando.value.status === "concluido" && usarPacote.value) {
+  if (usarPacote.value) {
     const { error: erroPacote } = await supabase.rpc("registrar_pagamento_pacote", { p_agendamento_id: idAlvo });
     if (erroPacote) { erro.value = erroPacote.message; toastErro("Agendamento salvo, mas o crédito do pacote não pôde ser usado."); return; }
   } else if (editando.value.status === "concluido" && linhasValidas.length) {
@@ -637,8 +664,10 @@ await carregarPeriodo();
   border-left: 3px solid var(--primary-dark);
   background: var(--primary-soft); color: var(--primary-dark);
 }
-.status-confirmado, .status-concluido { background: var(--success-soft); color: var(--success); border-left-color: var(--success); }
+.status-confirmado { background: var(--info-soft); color: var(--info); border-left-color: var(--info); }
+.status-concluido { background: var(--success-soft); color: var(--success); border-left-color: var(--success); }
 .status-agendado { background: var(--warning-soft); color: var(--warning); border-left-color: var(--warning); }
+.status-cancelado { background: var(--danger-soft); color: var(--danger); border-left-color: var(--danger); text-decoration: line-through; opacity: 0.75; }
 .bloco-agendamento strong { font-weight: 600; }
 
 .bloco-bloqueio {
@@ -651,13 +680,20 @@ await carregarPeriodo();
   border: 1px dashed var(--border);
 }
 
-.semana-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
-.dia-card { padding: 16px 8px; text-align: center; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
-.dia-card:hover { border-color: var(--primary); }
-.dia-card-dow { font-size: 12px; color: var(--ink-muted); text-transform: uppercase; }
-.dia-card-num { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; }
-.dia-card-contagem { font-size: 12px; color: var(--primary-dark); font-weight: 500; }
-.dia-card-contagem.vazio { color: var(--ink-muted); font-weight: 400; }
+.semana-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; align-items: start; }
+.dia-card { padding: 0; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
+.dia-card-cabeca { padding: 10px 8px; text-align: center; cursor: pointer; border-bottom: 1px solid var(--border); }
+.dia-card-cabeca:hover { background: var(--bg); }
+.dia-card-dow { display: block; font-size: 11px; color: var(--ink-muted); text-transform: uppercase; }
+.dia-card-num { display: block; font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; }
+.dia-card-lista { padding: 6px; display: flex; flex-direction: column; gap: 4px; min-height: 60px; max-height: 420px; overflow-y: auto; }
+.dia-card-item { padding: 5px 6px; border-radius: 6px; font-size: 11px; line-height: 1.3; cursor: pointer; border-left: 3px solid var(--primary-dark); background: var(--primary-soft); color: var(--primary-dark); }
+.dia-card-item small { display: block; opacity: 0.85; }
+.dia-card-item.status-confirmado { background: var(--info-soft); color: var(--info); border-left-color: var(--info); }
+.dia-card-item.status-concluido { background: var(--success-soft); color: var(--success); border-left-color: var(--success); }
+.dia-card-item.status-agendado { background: var(--warning-soft); color: var(--warning); border-left-color: var(--warning); }
+.dia-card-item.status-cancelado { background: var(--danger-soft); color: var(--danger); border-left-color: var(--danger); text-decoration: line-through; opacity: 0.75; }
+.dia-card-vazio { display: block; text-align: center; font-size: 12px; color: var(--ink-muted); padding: 10px 0; }
 
 .mes-wrap { padding: 16px; }
 .mes-cabecalho { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; color: var(--ink-muted); margin-bottom: 8px; }

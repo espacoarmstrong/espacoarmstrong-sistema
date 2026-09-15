@@ -203,6 +203,36 @@ Deno.serve(async (req) => {
   }
 
   // ---------------------------------------------------
+  // DELETE /colaboradores/:id — admin (exclui colaborador + login)
+  // ---------------------------------------------------
+  const delColabMatch = path.match(/^\/colaboradores\/([0-9a-fA-F-]+)$/);
+  if (delColabMatch && req.method === "DELETE") {
+    if (requester.role !== "admin") return json({ error: "Apenas admin" }, 403);
+    const colaboradorId = delColabMatch[1];
+
+    const { data: colaborador } = await admin
+      .from("colaboradores")
+      .select("user_id")
+      .eq("id", colaboradorId)
+      .single();
+
+    const { error: delError } = await admin.from("colaboradores").delete().eq("id", colaboradorId);
+    if (delError) {
+      if (delError.code === "23503") {
+        return json({ error: "Este colaborador tem agendamentos ou remunerações registradas. Desative-o em vez de excluir." }, 400);
+      }
+      return json({ error: delError.message }, 400);
+    }
+
+    if (colaborador?.user_id) {
+      await admin.from("usuarios").delete().eq("id", colaborador.user_id);
+      await admin.auth.admin.deleteUser(colaborador.user_id);
+    }
+
+    return json({ ok: true });
+  }
+
+  // ---------------------------------------------------
   // PUT /colaboradores/:id/status — admin (ativar/desativar)
   // body: { ativo: boolean }
   // ---------------------------------------------------

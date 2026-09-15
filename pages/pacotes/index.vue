@@ -30,6 +30,7 @@
               <button v-if="ehAdmin" class="btn" :class="p.ativo ? 'btn-danger' : 'btn-ghost'" @click="alternarAtivoPacote(p)">
                 {{ p.ativo ? 'Desativar' : 'Ativar' }}
               </button>
+              <button v-if="ehAdmin" class="btn btn-danger" @click="confirmarExclusaoPacote(p)">Excluir</button>
             </td>
           </tr>
           <tr v-if="!pacotes.length"><td colspan="5" style="color:var(--ink-muted);">Nenhum pacote cadastrado.</td></tr>
@@ -110,10 +111,7 @@
         <h2 style="margin-bottom:16px;">Vender pacote</h2>
         <div class="field">
           <label>Cliente</label>
-          <select v-model="vendaForm.cliente_id" class="input">
-            <option value="" disabled>Selecione</option>
-            <option v-for="c in clientes" :key="c.id" :value="c.id">{{ c.nome }}</option>
-          </select>
+          <SeletorCliente v-model="vendaForm.cliente_id" :clientes="clientes" />
         </div>
         <div class="field">
           <label>Pacote</label>
@@ -143,6 +141,15 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL: excluir pacote do catálogo -->
+    <ConfirmarExclusao
+      v-if="excluindoPacote"
+      titulo="Excluir pacote?"
+      mensagem="Só é possível excluir pacotes que nunca foram vendidos. Se já houve vendas, prefira desativá-lo em vez de excluir."
+      @confirmar="excluirPacote"
+      @cancelar="excluindoPacote = null"
+    />
 
     <!-- MODAL: cancelar venda -->
     <div v-if="cancelando" class="modal-backdrop" @click.self="cancelando = null">
@@ -204,6 +211,7 @@ const modalPacoteAberto = ref(false);
 const editandoPacote = ref<any>({ nome: "", validade_dias: 30, itens: [{ procedimento_id: "", quantidade: 1, valor_procedimento: 0 }] });
 const erroPacote = ref("");
 const salvandoPacote = ref(false);
+const excluindoPacote = ref<any>(null);
 
 const carregarPacotes = async () => {
   const { data } = await supabase
@@ -273,6 +281,20 @@ const salvarPacote = async () => {
   } finally {
     salvandoPacote.value = false;
   }
+};
+
+const confirmarExclusaoPacote = (p: any) => { excluindoPacote.value = p; };
+const excluirPacote = async () => {
+  const { error } = await supabase.from("pacotes").delete().eq("id", excluindoPacote.value.id);
+  excluindoPacote.value = null;
+  if (error) {
+    toastErro(error.code === "23503"
+      ? "Este pacote já teve vendas registradas. Desative-o em vez de excluir."
+      : "Não foi possível excluir o pacote.");
+    return;
+  }
+  await carregarPacotes();
+  sucesso("Pacote excluído com sucesso.");
 };
 
 const alternarAtivoPacote = async (p: any) => {
@@ -415,7 +437,7 @@ const formatarDataCurta = (data: string) => {
 const carregarBase = async () => {
   const [{ data: proc }, { data: cli }] = await Promise.all([
     supabase.from("procedimentos").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("clientes").select("id, nome, telefone").eq("ativo", true).order("nome"),
   ]);
   procedimentos.value = proc || [];
   clientes.value = cli || [];
