@@ -175,6 +175,9 @@ create table public.agendamentos (
   data_hora timestamptz not null,
   status text not null default 'agendado' check (status in ('agendado','confirmado','concluido','cancelado')),
   observacoes text,
+  motivo_cancelamento text,
+  forma_pagamento text check (forma_pagamento in ('debito','credito','dinheiro','pix')),
+  parcelas smallint check (parcelas between 1 and 24),
   criado_por uuid references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

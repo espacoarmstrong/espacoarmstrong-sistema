@@ -138,8 +138,32 @@
             <option value="agendado">Agendado</option>
             <option value="confirmado">Confirmado</option>
             <option value="concluido">Concluído</option>
+            <option value="cancelado">Cancelado</option>
           </select>
         </div>
+
+        <div class="field" v-if="editando?.status === 'cancelado'">
+          <label>Motivo do cancelamento</label>
+          <textarea v-model="editando.motivo_cancelamento" class="input" rows="2" placeholder="Ex.: Cliente desmarcou, imprevisto do colaborador..."></textarea>
+        </div>
+
+        <template v-if="editando?.status === 'concluido'">
+          <div class="field">
+            <label>Forma de pagamento</label>
+            <select v-model="editando.forma_pagamento" class="input">
+              <option value="" disabled>Selecione</option>
+              <option value="debito">Débito</option>
+              <option value="credito">Crédito</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="pix">Pix</option>
+            </select>
+          </div>
+          <div class="field" v-if="editando.forma_pagamento === 'credito'">
+            <label>Parcelas</label>
+            <input v-model.number="editando.parcelas" type="number" min="1" max="24" class="input" style="width:100px;" />
+          </div>
+        </template>
+
         <div class="field">
           <label>Observações</label>
           <textarea v-model="editando.observacoes" class="input" rows="2"></textarea>
@@ -147,7 +171,7 @@
         <p v-if="erro" class="erro-msg">{{ erro }}</p>
         <div style="display:flex; gap:10px; margin-top: 8px;">
           <button class="btn btn-primary" @click="salvar">Salvar</button>
-          <button v-if="editando?.id && podeAcao('agenda_cancelar')" class="btn btn-danger" @click="confirmarCancelamento(editando)">Cancelar agendamento</button>
+          <button v-if="editando?.id && podeAcao('agenda_cancelar') && editando.status !== 'cancelado'" class="btn btn-danger" @click="editando.status = 'cancelado'">Cancelar agendamento</button>
           <button class="btn btn-ghost" @click="modalAberto = false">Fechar</button>
         </div>
       </div>
@@ -176,18 +200,6 @@
         <div style="display:flex; gap:10px; margin-top: 8px;">
           <button class="btn btn-primary" @click="salvarBloqueio">Bloquear</button>
           <button class="btn btn-ghost" @click="bloqueando = null">Cancelar</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL: cancelar agendamento -->
-    <div v-if="cancelando" class="modal-backdrop" @click.self="cancelando = null">
-      <div class="modal" style="max-width:380px;">
-        <h2 style="margin-bottom:10px;">Cancelar agendamento?</h2>
-        <p style="color:var(--ink-muted); font-size:14px;">O horário voltará a ficar disponível.</p>
-        <div style="display:flex; gap:10px; margin-top: 16px;">
-          <button class="btn btn-danger" @click="cancelar">Cancelar agendamento</button>
-          <button class="btn btn-ghost" @click="cancelando = null">Voltar</button>
         </div>
       </div>
     </div>
@@ -234,11 +246,10 @@ const bloqueios = ref<any[]>([]);
 const contagemPorDia = ref<Record<string, number>>({});
 
 const modalAberto = ref(false);
-const editando = ref<any>({ cliente_id: "", procedimento_id: "", colaborador_id: "", observacoes: "", status: "agendado" });
+const editando = ref<any>({ cliente_id: "", procedimento_id: "", colaborador_id: "", observacoes: "", status: "agendado", motivo_cancelamento: "", forma_pagamento: "", parcelas: 1 });
 const editandoData = ref(dataAtual.value);
 const editandoHora = ref("09:00");
 const erro = ref("");
-const cancelando = ref<any>(null);
 
 const modoBloqueio = ref(false);
 const bloqueando = ref<any>(null);
@@ -392,7 +403,7 @@ const cliqueGrade = (evt: MouseEvent, colaborador: any) => {
 
 // ---------- CRUD agendamento ----------
 const abrirNovo = (colaboradorId = "", hora = "09:00") => {
-  editando.value = { cliente_id: "", procedimento_id: "", colaborador_id: colaboradorId, observacoes: "", status: "agendado" };
+  editando.value = { cliente_id: "", procedimento_id: "", colaborador_id: colaboradorId, observacoes: "", status: "agendado", motivo_cancelamento: "", forma_pagamento: "", parcelas: 1 };
   editandoData.value = dataAtual.value;
   editandoHora.value = hora;
   erro.value = "";
@@ -400,7 +411,7 @@ const abrirNovo = (colaboradorId = "", hora = "09:00") => {
 };
 
 const abrirEdicao = (a: any) => {
-  editando.value = { ...a };
+  editando.value = { ...a, motivo_cancelamento: a.motivo_cancelamento || "", forma_pagamento: a.forma_pagamento || "", parcelas: a.parcelas || 1 };
   const dt = new Date(a.data_hora);
   editandoData.value = chaveLocal(dt);
   editandoHora.value = dt.toTimeString().slice(0, 5);
@@ -414,6 +425,14 @@ const salvar = async () => {
     return;
   }
   if (!editandoData.value || !editandoHora.value) { erro.value = "Informe a data e a hora."; return; }
+  if (editando.value.status === "cancelado" && !editando.value.motivo_cancelamento?.trim()) {
+    erro.value = "Informe o motivo do cancelamento.";
+    return;
+  }
+  if (editando.value.status === "concluido" && !editando.value.forma_pagamento) {
+    erro.value = "Selecione a forma de pagamento.";
+    return;
+  }
 
   const dataHora = new Date(`${editandoData.value}T${editandoHora.value}:00`).toISOString();
   const payload = {
@@ -423,6 +442,9 @@ const salvar = async () => {
     data_hora: dataHora,
     observacoes: editando.value.observacoes,
     status: editando.value.status || "agendado",
+    motivo_cancelamento: editando.value.status === "cancelado" ? editando.value.motivo_cancelamento : null,
+    forma_pagamento: editando.value.status === "concluido" ? editando.value.forma_pagamento : null,
+    parcelas: editando.value.status === "concluido" && editando.value.forma_pagamento === "credito" ? (editando.value.parcelas || 1) : null,
   };
   const ehEdicao = !!editando.value.id;
   const query = ehEdicao
@@ -433,15 +455,6 @@ const salvar = async () => {
   modalAberto.value = false;
   await carregarPeriodo();
   sucesso(ehEdicao ? "Agendamento atualizado com sucesso." : "Agendamento criado com sucesso.");
-};
-
-const confirmarCancelamento = (a: any) => { modalAberto.value = false; cancelando.value = a; };
-const cancelar = async () => {
-  const { error } = await supabase.from("agendamentos").update({ status: "cancelado" }).eq("id", cancelando.value.id);
-  cancelando.value = null;
-  if (error) { toastErro("Não foi possível cancelar o agendamento."); return; }
-  await carregarPeriodo();
-  sucesso("Agendamento cancelado com sucesso.");
 };
 
 // ---------- bloqueio de horários ----------

@@ -26,6 +26,14 @@
       <div class="field"><label>Telefone</label><input v-model="colaborador.telefone" class="input" /></div>
       <div class="field"><label>Cargo / Função</label><input v-model="colaborador.cargo" class="input" /></div>
       <button class="btn btn-primary" :disabled="salvandoDados" @click="salvarDados">{{ salvandoDados ? 'Salvando...' : 'Salvar dados' }}</button>
+
+      <hr class="separador" />
+
+      <h3 class="subtitulo">Redefinir senha de acesso</h3>
+      <p class="ajuda">Use caso o colaborador tenha perdido ou esquecido a senha.</p>
+      <div class="field"><label>Nova senha</label><input v-model="novaSenha" type="password" class="input" placeholder="Mínimo 6 caracteres" /></div>
+      <div class="field"><label>Confirmar nova senha</label><input v-model="confirmarSenha" type="password" class="input" /></div>
+      <button class="btn btn-primary" :disabled="alterandoSenha" @click="alterarSenha">{{ alterandoSenha ? 'Alterando...' : 'Alterar senha' }}</button>
     </div>
 
     <!-- PROCEDIMENTOS -->
@@ -95,6 +103,9 @@ const colaboradorId = route.params.id as string;
 const colaborador = ref<any>(null);
 const arquivoFoto = ref<File | null>(null);
 const salvandoDados = ref(false);
+const novaSenha = ref("");
+const confirmarSenha = ref("");
+const alterandoSenha = ref(false);
 const procedimentos = ref<any[]>([]);
 const procedimentosSelecionados = ref<string[]>([]);
 const horarios = ref<any[]>([]);
@@ -163,6 +174,22 @@ const salvarDados = async () => {
   }
 };
 
+const alterarSenha = async () => {
+  if (novaSenha.value.length < 6) { toastErro("A senha deve ter pelo menos 6 caracteres."); return; }
+  if (novaSenha.value !== confirmarSenha.value) { toastErro("As senhas não coincidem."); return; }
+  alterandoSenha.value = true;
+  try {
+    await chamar(`/colaboradores/${colaboradorId}/senha`, { method: "PUT", body: { senha: novaSenha.value } });
+    novaSenha.value = "";
+    confirmarSenha.value = "";
+    sucesso("Senha alterada com sucesso.");
+  } catch (e: any) {
+    toastErro(e.message || "Não foi possível alterar a senha.");
+  } finally {
+    alterandoSenha.value = false;
+  }
+};
+
 const salvarProcedimentos = async () => {
   await supabase.from("colaborador_procedimentos").delete().eq("colaborador_id", colaboradorId);
   if (procedimentosSelecionados.value.length) {
@@ -227,6 +254,8 @@ await carregar();
 .aba.ativa { color: var(--primary-dark); border-bottom-color: var(--primary); font-weight: 500; }
 .conteudo { padding: 22px; max-width: 520px; }
 .ajuda { color: var(--ink-muted); font-size: 13px; margin: 0 0 14px; }
+.separador { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
+.subtitulo { font-size: 15px; margin: 0 0 4px; }
 .linha-check { display: flex; align-items: center; gap: 8px; padding: 7px 0; font-size: 14px; }
 .linha-horario { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .linha-horario:last-of-type { border-bottom: none; margin-bottom: 16px; }
