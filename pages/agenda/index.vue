@@ -149,9 +149,9 @@
 
         <template v-if="editando?.status === 'concluido'">
           <div class="field">
-            <label>Forma de pagamento</label>
+            <label>Forma de pagamento (opcional — pode registrar depois em Comandas)</label>
             <select v-model="editando.forma_pagamento" class="input">
-              <option value="" disabled>Selecione</option>
+              <option value="">Ainda não pago</option>
               <option value="debito">Débito</option>
               <option value="credito">Crédito</option>
               <option value="dinheiro">Dinheiro</option>
@@ -429,11 +429,6 @@ const salvar = async () => {
     erro.value = "Informe o motivo do cancelamento.";
     return;
   }
-  if (editando.value.status === "concluido" && !editando.value.forma_pagamento) {
-    erro.value = "Selecione a forma de pagamento.";
-    return;
-  }
-
   const dataHora = new Date(`${editandoData.value}T${editandoHora.value}:00`).toISOString();
   const payload = {
     cliente_id: editando.value.cliente_id,

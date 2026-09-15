@@ -7,6 +7,7 @@
       <nav class="nav">
         <NuxtLink to="/" class="nav-item">Dashboard</NuxtLink>
         <NuxtLink v-if="podeAcao('agenda_visualizar')" to="/agenda" class="nav-item">Agenda</NuxtLink>
+        <NuxtLink v-if="podeAcao('comanda_visualizar')" to="/comandas" class="nav-item">Comandas</NuxtLink>
         <NuxtLink v-if="podeAcao('clientes_visualizar')" to="/clientes" class="nav-item">Clientes</NuxtLink>
         <NuxtLink v-if="podeAcao('procedimentos_visualizar')" to="/procedimentos" class="nav-item">Procedimentos</NuxtLink>
         <NuxtLink v-if="ehAdmin" to="/categorias" class="nav-item">Categorias</NuxtLink>

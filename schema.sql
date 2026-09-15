@@ -178,6 +178,8 @@ create table public.agendamentos (
   motivo_cancelamento text,
   forma_pagamento text check (forma_pagamento in ('debito','credito','dinheiro','pix')),
   parcelas smallint check (parcelas between 1 and 24),
+  valor_desconto numeric(10,2) not null default 0 check (valor_desconto >= 0),
+  data_pagamento timestamptz,
   criado_por uuid references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -325,11 +327,15 @@ create policy clientes_delete on public.clientes for delete
 
 -- AGENDAMENTOS (admin sempre tem acesso; colaborador precisa da permissão concedida)
 create policy agendamentos_select on public.agendamentos for select
-  using (public.tem_permissao('agenda_visualizar'));
+  using (public.tem_permissao('agenda_visualizar') or public.tem_permissao('comanda_visualizar'));
 create policy agendamentos_insert on public.agendamentos for insert
   with check (public.tem_permissao('agenda_criar'));
 create policy agendamentos_update on public.agendamentos for update
-  using (public.tem_permissao('agenda_editar') or public.tem_permissao('agenda_cancelar'));
+  using (
+    public.tem_permissao('agenda_editar') or public.tem_permissao('agenda_cancelar')
+    or public.tem_permissao('comanda_finalizar') or public.tem_permissao('comanda_registrar_pagamento')
+    or public.tem_permissao('comanda_aplicar_desconto')
+  );
 create policy agendamentos_delete on public.agendamentos for delete
   using (public.is_admin());
 
