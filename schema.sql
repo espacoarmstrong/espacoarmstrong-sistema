@@ -195,6 +195,7 @@ create table public.agendamentos (
   parcelas smallint check (parcelas between 1 and 24),
   valor_desconto numeric(10,2) not null default 0 check (valor_desconto >= 0),
   data_pagamento timestamptz,
+  pago boolean not null default false,
   percentual_comissao numeric(5,2),
   valor_comissao numeric(10,2),
   remuneracao_pagamento_id uuid references public.remuneracoes_pagamentos(id),
@@ -206,6 +207,18 @@ create table public.agendamentos (
 create index idx_agendamentos_colaborador on public.agendamentos(colaborador_id, data_hora);
 create index idx_agendamentos_data on public.agendamentos(data_hora);
 create index idx_agendamentos_remuneracao on public.agendamentos(colaborador_id, remuneracao_pagamento_id);
+
+-- Detalhamento das formas de pagamento de uma comanda (permite combinar mais de uma forma)
+create table public.pagamentos_comanda (
+  id uuid primary key default gen_random_uuid(),
+  agendamento_id uuid not null references public.agendamentos(id) on delete cascade,
+  forma_pagamento text not null check (forma_pagamento in ('debito','credito','dinheiro','pix')),
+  valor numeric(10,2) not null check (valor > 0),
+  parcelas smallint check (parcelas between 1 and 24),
+  created_at timestamptz not null default now()
+);
+
+create index idx_pagamentos_comanda_agendamento on public.pagamentos_comanda(agendamento_id);
 
 create trigger trg_agendamentos_updated_at
   before update on public.agendamentos
@@ -222,7 +235,7 @@ begin
   if new.remuneracao_pagamento_id is not null then
     return new;
   end if;
-  if new.forma_pagamento is null then
+  if new.pago is not true then
     new.valor_comissao := null;
     new.percentual_comissao := null;
     return new;
@@ -240,6 +253,58 @@ $$ language plpgsql security definer;
 create trigger trg_calcular_comissao
   before insert or update on public.agendamentos
   for each row execute function public.calcular_comissao_agendamento();
+
+-- Registra uma ou mais formas de pagamento de uma comanda de uma só vez
+create or replace function public.registrar_pagamento_comanda(
+  p_agendamento_id uuid,
+  p_pagamentos jsonb,
+  p_valor_desconto numeric default 0
+)
+returns public.agendamentos as $$
+declare
+  v_agendamento public.agendamentos;
+  v_item jsonb;
+  v_qtd int;
+begin
+  if not public.tem_permissao('comanda_registrar_pagamento') then
+    raise exception 'Sem permissão para registrar pagamento';
+  end if;
+  if coalesce(p_valor_desconto,0) > 0 and not public.tem_permissao('comanda_aplicar_desconto') then
+    raise exception 'Sem permissão para aplicar desconto';
+  end if;
+
+  v_qtd := jsonb_array_length(p_pagamentos);
+  if v_qtd is null or v_qtd = 0 then
+    raise exception 'Informe ao menos uma forma de pagamento';
+  end if;
+
+  delete from public.pagamentos_comanda where agendamento_id = p_agendamento_id;
+
+  for v_item in select * from jsonb_array_elements(p_pagamentos)
+  loop
+    insert into public.pagamentos_comanda (agendamento_id, forma_pagamento, valor, parcelas)
+    values (
+      p_agendamento_id,
+      v_item->>'forma_pagamento',
+      (v_item->>'valor')::numeric,
+      nullif(v_item->>'parcelas','')::smallint
+    );
+  end loop;
+
+  update public.agendamentos
+  set
+    valor_desconto = coalesce(p_valor_desconto, 0),
+    pago = true,
+    data_pagamento = coalesce(data_pagamento, now()),
+    forma_pagamento = case when v_qtd = 1 then p_pagamentos->0->>'forma_pagamento' else null end,
+    parcelas = case when v_qtd = 1 and p_pagamentos->0->>'forma_pagamento' = 'credito'
+                    then nullif(p_pagamentos->0->>'parcelas','')::smallint else null end
+  where id = p_agendamento_id
+  returning * into v_agendamento;
+
+  return v_agendamento;
+end;
+$$ language plpgsql security definer;
 
 -- Registra o pagamento de remuneração de um colaborador e trava os atendimentos incluídos
 create or replace function public.registrar_remuneracao(
@@ -431,6 +496,11 @@ create policy agendamentos_update on public.agendamentos for update
   );
 create policy agendamentos_delete on public.agendamentos for delete
   using (public.is_admin());
+
+-- PAGAMENTOS DA COMANDA (inserts/updates/deletes só acontecem via função registrar_pagamento_comanda)
+alter table public.pagamentos_comanda enable row level security;
+create policy pagamentos_comanda_select on public.pagamentos_comanda for select
+  using (public.tem_permissao('comanda_visualizar'));
 
 -- BLOQUEIOS DE HORÁRIO
 create policy bloqueios_select on public.bloqueios_horario for select

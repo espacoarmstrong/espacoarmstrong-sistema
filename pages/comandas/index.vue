@@ -35,14 +35,14 @@
             <td>{{ formatarData(c.data_hora) }}</td>
             <td>{{ formatarValor(valorFinal(c)) }}</td>
             <td>
-              <span :class="['badge', c.forma_pagamento ? 'badge-success' : 'badge-warning']">
-                {{ c.forma_pagamento ? 'Paga' : 'Aberta' }}
+              <span :class="['badge', c.pago ? 'badge-success' : 'badge-warning']">
+                {{ c.pago ? 'Paga' : 'Aberta' }}
               </span>
             </td>
-            <td>{{ c.forma_pagamento ? labelPagamento(c) : '—' }}</td>
+            <td>{{ c.pago ? labelPagamento(c) : '—' }}</td>
             <td style="text-align:right;">
               <button v-if="podeAcao('comanda_registrar_pagamento')" class="btn btn-ghost" @click="abrirPagamento(c)">
-                {{ c.forma_pagamento ? 'Editar pagamento' : 'Registrar pagamento' }}
+                {{ c.pago ? 'Editar pagamento' : 'Registrar pagamento' }}
               </button>
             </td>
           </tr>
@@ -59,28 +59,17 @@
           {{ pagando.clientes?.nome }} · {{ pagando.procedimentos?.nome }}
         </p>
 
-        <div class="field">
-          <label>Forma de pagamento</label>
-          <select v-model="pagamentoForm.forma_pagamento" class="input">
-            <option value="" disabled>Selecione</option>
-            <option value="debito">Débito</option>
-            <option value="credito">Crédito</option>
-            <option value="dinheiro">Dinheiro</option>
-            <option value="pix">Pix</option>
-          </select>
-        </div>
-        <div class="field" v-if="pagamentoForm.forma_pagamento === 'credito'">
-          <label>Parcelas</label>
-          <input v-model.number="pagamentoForm.parcelas" type="number" min="1" max="24" class="input" style="width:100px;" />
-        </div>
+        <p style="font-size:14px; margin:0 0 10px;">
+          Valor do procedimento: <strong>{{ formatarValor(pagando.procedimentos?.valor || 0) }}</strong>
+        </p>
+
         <div class="field" v-if="podeAcao('comanda_aplicar_desconto')">
           <label>Desconto (R$)</label>
           <input v-model.number="pagamentoForm.valor_desconto" type="number" min="0" step="0.01" class="input" />
         </div>
 
-        <p style="font-size:14px; margin:0 0 14px;">
-          Total: <strong>{{ formatarValor((pagando.procedimentos?.valor || 0) - (pagamentoForm.valor_desconto || 0)) }}</strong>
-        </p>
+        <label class="ajuda" style="display:block; margin-bottom:4px;">Forma(s) de pagamento</label>
+        <FormaPagamentoMultipla v-model="pagamentoForm.pagamentos" :total="totalAPagar" />
 
         <p v-if="erro" class="erro-msg">{{ erro }}</p>
         <div style="display:flex; gap:10px;">
@@ -102,7 +91,7 @@ const filtro = ref<"todas" | "abertas" | "pagas">("todas");
 const busca = ref("");
 
 const pagando = ref<any>(null);
-const pagamentoForm = ref<any>({ forma_pagamento: "", parcelas: 1, valor_desconto: 0 });
+const pagamentoForm = ref<any>({ valor_desconto: 0, pagamentos: [] as any[] });
 const erro = ref("");
 const salvando = ref(false);
 
@@ -116,6 +105,7 @@ const carregar = async () => {
 };
 
 const valorFinal = (c: any) => (c.procedimentos?.valor || 0) - (c.valor_desconto || 0);
+const totalAPagar = computed(() => (pagando.value?.procedimentos?.valor || 0) - (pagamentoForm.value.valor_desconto || 0));
 
 const formatarValor = (v: number) =>
   (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -127,6 +117,7 @@ const formatarData = (dataHora: string) => {
 
 const labelPagamento = (c: any) => {
   const labels: Record<string, string> = { debito: "Débito", credito: "Crédito", dinheiro: "Dinheiro", pix: "Pix" };
+  if (!c.forma_pagamento) return "Múltiplas formas";
   let texto = labels[c.forma_pagamento] || c.forma_pagamento;
   if (c.forma_pagamento === "credito" && c.parcelas) texto += ` (${c.parcelas}x)`;
   return texto;
@@ -134,35 +125,46 @@ const labelPagamento = (c: any) => {
 
 const filtradas = computed(() => {
   let lista = comandas.value;
-  if (filtro.value === "abertas") lista = lista.filter((c) => !c.forma_pagamento);
-  if (filtro.value === "pagas") lista = lista.filter((c) => !!c.forma_pagamento);
+  if (filtro.value === "abertas") lista = lista.filter((c) => !c.pago);
+  if (filtro.value === "pagas") lista = lista.filter((c) => !!c.pago);
   const termo = busca.value.toLowerCase().trim();
   if (termo) lista = lista.filter((c) => (c.clientes?.nome || "").toLowerCase().includes(termo));
   return lista;
 });
 
-const abrirPagamento = (c: any) => {
+const abrirPagamento = async (c: any) => {
   pagando.value = c;
-  pagamentoForm.value = {
-    forma_pagamento: c.forma_pagamento || "",
-    parcelas: c.parcelas || 1,
-    valor_desconto: c.valor_desconto || 0,
-  };
   erro.value = "";
+  const valorDesconto = c.valor_desconto || 0;
+  let pagamentosExistentes: any[] = [];
+  if (c.pago) {
+    const { data } = await supabase.from("pagamentos_comanda").select("*").eq("agendamento_id", c.id);
+    pagamentosExistentes = (data || []).map((p: any) => ({ forma_pagamento: p.forma_pagamento, valor: p.valor, parcelas: p.parcelas || 1 }));
+  }
+  pagamentoForm.value = {
+    valor_desconto: valorDesconto,
+    pagamentos: pagamentosExistentes.length ? pagamentosExistentes : [{ forma_pagamento: "", valor: (c.procedimentos?.valor || 0) - valorDesconto, parcelas: 1 }],
+  };
 };
 
 const salvarPagamento = async () => {
-  if (!pagamentoForm.value.forma_pagamento) { erro.value = "Selecione a forma de pagamento."; return; }
-  salvando.value = true;
-  const payload: any = {
-    forma_pagamento: pagamentoForm.value.forma_pagamento,
-    parcelas: pagamentoForm.value.forma_pagamento === "credito" ? (pagamentoForm.value.parcelas || 1) : null,
-    data_pagamento: new Date().toISOString(),
-  };
-  if (podeAcao("comanda_aplicar_desconto")) {
-    payload.valor_desconto = pagamentoForm.value.valor_desconto || 0;
+  const linhasValidas = (pagamentoForm.value.pagamentos || []).filter((p: any) => p.forma_pagamento && p.valor > 0);
+  if (!linhasValidas.length) { erro.value = "Informe ao menos uma forma de pagamento com valor."; return; }
+  const somado = linhasValidas.reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
+  if (Math.round((somado - totalAPagar.value) * 100) !== 0) {
+    erro.value = "A soma das formas de pagamento precisa ser igual ao total a pagar.";
+    return;
   }
-  const { error } = await supabase.from("agendamentos").update(payload).eq("id", pagando.value.id);
+  salvando.value = true;
+  const { error } = await supabase.rpc("registrar_pagamento_comanda", {
+    p_agendamento_id: pagando.value.id,
+    p_pagamentos: linhasValidas.map((p: any) => ({
+      forma_pagamento: p.forma_pagamento,
+      valor: p.valor,
+      parcelas: p.forma_pagamento === "credito" ? (p.parcelas || 1) : null,
+    })),
+    p_valor_desconto: podeAcao("comanda_aplicar_desconto") ? (pagamentoForm.value.valor_desconto || 0) : 0,
+  });
   salvando.value = false;
   if (error) { erro.value = error.message; toastErro("Não foi possível registrar o pagamento."); return; }
   pagando.value = null;

@@ -114,6 +114,7 @@
             <option value="" disabled>Selecione</option>
             <option v-for="p in procedimentos" :key="p.id" :value="p.id">{{ p.nome }} ({{ p.duracao_minutos }} min)</option>
           </select>
+          <p v-if="procedimentoSelecionado" class="valor-procedimento">Valor do procedimento: <strong>{{ formatarValor(procedimentoSelecionado.valor) }}</strong></p>
         </div>
         <div class="field">
           <label>Colaborador</label>
@@ -149,18 +150,9 @@
 
         <template v-if="editando?.status === 'concluido'">
           <div class="field">
-            <label>Forma de pagamento (opcional — pode registrar depois em Comandas)</label>
-            <select v-model="editando.forma_pagamento" class="input">
-              <option value="">Ainda não pago</option>
-              <option value="debito">Débito</option>
-              <option value="credito">Crédito</option>
-              <option value="dinheiro">Dinheiro</option>
-              <option value="pix">Pix</option>
-            </select>
-          </div>
-          <div class="field" v-if="editando.forma_pagamento === 'credito'">
-            <label>Parcelas</label>
-            <input v-model.number="editando.parcelas" type="number" min="1" max="24" class="input" style="width:100px;" />
+            <label>Pagamento (opcional — pode registrar depois em Comandas)</label>
+            <FormaPagamentoMultipla v-if="mostrarPagamento" v-model="editandoPagamentos" :total="procedimentoSelecionado?.valor || 0" />
+            <button v-else type="button" class="btn btn-ghost" style="padding:6px 10px; font-size:13px;" @click="mostrarPagamento = true">+ Registrar pagamento agora</button>
           </div>
         </template>
 
@@ -246,10 +238,15 @@ const bloqueios = ref<any[]>([]);
 const contagemPorDia = ref<Record<string, number>>({});
 
 const modalAberto = ref(false);
-const editando = ref<any>({ cliente_id: "", procedimento_id: "", colaborador_id: "", observacoes: "", status: "agendado", motivo_cancelamento: "", forma_pagamento: "", parcelas: 1 });
+const editando = ref<any>({ cliente_id: "", procedimento_id: "", colaborador_id: "", observacoes: "", status: "agendado", motivo_cancelamento: "" });
 const editandoData = ref(dataAtual.value);
 const editandoHora = ref("09:00");
+const editandoPagamentos = ref<any[]>([]);
+const mostrarPagamento = ref(false);
 const erro = ref("");
+
+const procedimentoSelecionado = computed(() => procedimentos.value.find((p) => p.id === editando.value.procedimento_id));
+const formatarValor = (v: number) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const modoBloqueio = ref(false);
 const bloqueando = ref<any>(null);
@@ -403,19 +400,28 @@ const cliqueGrade = (evt: MouseEvent, colaborador: any) => {
 
 // ---------- CRUD agendamento ----------
 const abrirNovo = (colaboradorId = "", hora = "09:00") => {
-  editando.value = { cliente_id: "", procedimento_id: "", colaborador_id: colaboradorId, observacoes: "", status: "agendado", motivo_cancelamento: "", forma_pagamento: "", parcelas: 1 };
+  editando.value = { cliente_id: "", procedimento_id: "", colaborador_id: colaboradorId, observacoes: "", status: "agendado", motivo_cancelamento: "" };
   editandoData.value = dataAtual.value;
   editandoHora.value = hora;
+  editandoPagamentos.value = [];
+  mostrarPagamento.value = false;
   erro.value = "";
   modalAberto.value = true;
 };
 
-const abrirEdicao = (a: any) => {
-  editando.value = { ...a, motivo_cancelamento: a.motivo_cancelamento || "", forma_pagamento: a.forma_pagamento || "", parcelas: a.parcelas || 1 };
+const abrirEdicao = async (a: any) => {
+  editando.value = { ...a, motivo_cancelamento: a.motivo_cancelamento || "" };
   const dt = new Date(a.data_hora);
   editandoData.value = chaveLocal(dt);
   editandoHora.value = dt.toTimeString().slice(0, 5);
   erro.value = "";
+  editandoPagamentos.value = [];
+  mostrarPagamento.value = false;
+  if (a.status === "concluido" && a.pago) {
+    const { data } = await supabase.from("pagamentos_comanda").select("*").eq("agendamento_id", a.id);
+    editandoPagamentos.value = (data || []).map((p: any) => ({ forma_pagamento: p.forma_pagamento, valor: p.valor, parcelas: p.parcelas || 1 }));
+    mostrarPagamento.value = true;
+  }
   modalAberto.value = true;
 };
 
@@ -429,8 +435,22 @@ const salvar = async () => {
     erro.value = "Informe o motivo do cancelamento.";
     return;
   }
+
+  const linhasValidas = (editandoPagamentos.value || []).filter((p: any) => p.forma_pagamento && p.valor > 0);
+  if (mostrarPagamento.value && linhasValidas.length) {
+    const somado = linhasValidas.reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
+    const total = procedimentoSelecionado.value?.valor || 0;
+    if (Math.round((somado - total) * 100) !== 0) {
+      erro.value = "A soma das formas de pagamento precisa ser igual ao valor do procedimento.";
+      return;
+    }
+  }
+
   const dataHora = new Date(`${editandoData.value}T${editandoHora.value}:00`).toISOString();
-  const payload = {
+  const ehEdicao = !!editando.value.id;
+  const idAlvo = ehEdicao ? editando.value.id : crypto.randomUUID();
+  const payload: any = {
+    id: idAlvo,
     cliente_id: editando.value.cliente_id,
     procedimento_id: editando.value.procedimento_id,
     colaborador_id: editando.value.colaborador_id,
@@ -438,15 +458,26 @@ const salvar = async () => {
     observacoes: editando.value.observacoes,
     status: editando.value.status || "agendado",
     motivo_cancelamento: editando.value.status === "cancelado" ? editando.value.motivo_cancelamento : null,
-    forma_pagamento: editando.value.status === "concluido" && editando.value.forma_pagamento ? editando.value.forma_pagamento : null,
-    parcelas: editando.value.status === "concluido" && editando.value.forma_pagamento === "credito" ? (editando.value.parcelas || 1) : null,
   };
-  const ehEdicao = !!editando.value.id;
   const query = ehEdicao
-    ? supabase.from("agendamentos").update(payload).eq("id", editando.value.id)
+    ? supabase.from("agendamentos").update(payload).eq("id", idAlvo)
     : supabase.from("agendamentos").insert(payload);
   const { error } = await query;
   if (error) { erro.value = error.message; toastErro("Não foi possível salvar o agendamento."); return; }
+
+  if (editando.value.status === "concluido" && linhasValidas.length) {
+    const { error: erroPagamento } = await supabase.rpc("registrar_pagamento_comanda", {
+      p_agendamento_id: idAlvo,
+      p_pagamentos: linhasValidas.map((p: any) => ({
+        forma_pagamento: p.forma_pagamento,
+        valor: p.valor,
+        parcelas: p.forma_pagamento === "credito" ? (p.parcelas || 1) : null,
+      })),
+      p_valor_desconto: 0,
+    });
+    if (erroPagamento) { erro.value = erroPagamento.message; toastErro("Agendamento salvo, mas o pagamento não pôde ser registrado."); return; }
+  }
+
   modalAberto.value = false;
   await carregarPeriodo();
   sucesso(ehEdicao ? "Agendamento atualizado com sucesso." : "Agendamento criado com sucesso.");
@@ -492,6 +523,7 @@ await carregarPeriodo();
 .data-label { min-width: 160px; text-align: center; font-size: 14px; text-transform: capitalize; }
 .ajuda-bloqueio { color: var(--danger); font-size: 13px; margin: 0 0 10px; }
 .ajuda { color: var(--ink-muted); font-size: 13px; margin: 0 0 14px; }
+.valor-procedimento { font-size: 13px; color: var(--primary-dark); margin: 6px 0 0; }
 .erro-msg { color: var(--danger); font-size: 13px; margin: -6px 0 10px; }
 
 .dia-wrap { padding: 0; overflow-x: auto; }

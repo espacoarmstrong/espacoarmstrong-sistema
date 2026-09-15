@@ -21,6 +21,7 @@
             <td>{{ r.itens.length }}</td>
             <td>{{ formatarValor(r.total) }}</td>
             <td style="text-align:right;">
+              <button class="btn btn-ghost" :disabled="!r.itens.length" @click="abrirDescricao(r)">Descrição</button>
               <button v-if="podeAcao('remuneracao_pagar')" class="btn btn-ghost" :disabled="!r.itens.length" @click="abrirPagamento(r)">
                 Registrar pagamento
               </button>
@@ -47,6 +48,35 @@
           <tr v-if="!pagamentos.length"><td colspan="4" style="color:var(--ink-muted);">Nenhum pagamento registrado ainda.</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- MODAL: descrição -->
+    <div v-if="detalhando" class="modal-backdrop" @click.self="detalhando = null">
+      <div class="modal">
+        <h2 style="margin-bottom:4px;">Descrição dos atendimentos</h2>
+        <p style="color:var(--ink-muted); font-size:13px; margin:0 0 16px;">{{ detalhando.nome }}</p>
+
+        <div class="card" style="padding: 4px;">
+          <table>
+            <thead>
+              <tr><th>Data</th><th>Procedimento</th><th>Valor do procedimento</th><th>% remuneração</th><th>Comissão</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in detalhando.itens" :key="item.id">
+                <td>{{ formatarData(item.data_hora) }}</td>
+                <td>{{ item.procedimentos?.nome || '—' }}</td>
+                <td>{{ formatarValor(item.procedimentos?.valor || 0) }}</td>
+                <td>{{ item.percentual_comissao ?? 0 }}%</td>
+                <td>{{ formatarValor(item.valor_comissao) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top: 16px;">
+          <button class="btn btn-ghost" @click="detalhando = null">Fechar</button>
+        </div>
+      </div>
     </div>
 
     <!-- MODAL: registrar pagamento -->
@@ -94,6 +124,7 @@ const itensPendentes = ref<any[]>([]);
 const pagamentos = ref<any[]>([]);
 
 const pagando = ref<any>(null);
+const detalhando = ref<any>(null);
 const selecionados = ref<string[]>([]);
 const observacoes = ref("");
 const erro = ref("");
@@ -102,8 +133,8 @@ const salvando = ref(false);
 const carregarPendentes = async () => {
   const { data } = await supabase
     .from("agendamentos")
-    .select("*, colaboradores(nome), procedimentos(nome), clientes(nome)")
-    .not("forma_pagamento", "is", null)
+    .select("*, colaboradores(nome), procedimentos(nome, valor), clientes(nome)")
+    .eq("pago", true)
     .not("valor_comissao", "is", null)
     .is("remuneracao_pagamento_id", null)
     .order("data_hora", { ascending: true });
@@ -134,6 +165,10 @@ const totalSelecionado = computed(() =>
     .filter((i: any) => selecionados.value.includes(i.id))
     .reduce((soma: number, i: any) => soma + Number(i.valor_comissao || 0), 0)
 );
+
+const abrirDescricao = (r: any) => {
+  detalhando.value = r;
+};
 
 const abrirPagamento = (r: any) => {
   pagando.value = r;

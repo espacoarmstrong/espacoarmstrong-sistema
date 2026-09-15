@@ -41,8 +41,8 @@
             <td>{{ h.procedimentos?.nome || '—' }}</td>
             <td>{{ h.colaboradores?.nome || '—' }}</td>
             <td><span :class="['badge', badgeClasse(h.status)]">{{ labelStatus(h.status) }}</span></td>
-            <td v-if="podeAcao('comanda_visualizar')">{{ h.forma_pagamento ? labelPagamento(h) : (h.status === 'cancelado' ? '—' : 'Em aberto') }}</td>
-            <td v-if="podeAcao('comanda_visualizar')">{{ h.forma_pagamento ? formatarValor(valorFinal(h)) : '—' }}</td>
+            <td v-if="podeAcao('comanda_visualizar')">{{ h.pago ? labelPagamento(h) : (h.status === 'cancelado' ? '—' : 'Em aberto') }}</td>
+            <td v-if="podeAcao('comanda_visualizar')">{{ h.pago ? formatarValor(valorFinal(h)) : '—' }}</td>
           </tr>
           <tr v-if="!historico.length"><td colspan="6" style="color:var(--ink-muted);">Nenhum atendimento registrado.</td></tr>
         </tbody>
@@ -74,7 +74,7 @@ const carregar = async () => {
 const valorFinal = (h: any) => (h.procedimentos?.valor || 0) - (h.valor_desconto || 0);
 
 const totalPago = computed(() =>
-  historico.value.filter((h) => h.forma_pagamento).reduce((soma, h) => soma + valorFinal(h), 0)
+  historico.value.filter((h) => h.pago).reduce((soma, h) => soma + valorFinal(h), 0)
 );
 
 const formatarValor = (v: number) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -92,6 +92,7 @@ const badgeClasse = (s: string) =>
 
 const labelPagamento = (h: any) => {
   const labels: Record<string, string> = { debito: "Débito", credito: "Crédito", dinheiro: "Dinheiro", pix: "Pix" };
+  if (!h.forma_pagamento) return "Múltiplas formas";
   let texto = labels[h.forma_pagamento] || h.forma_pagamento;
   if (h.forma_pagamento === "credito" && h.parcelas) texto += ` (${h.parcelas}x)`;
   return texto;
