@@ -54,6 +54,7 @@
 <script setup lang="ts">
 const supabase = useSupabaseClient();
 const { ehAdmin } = useUsuario();
+const { sucesso, erro: toastErro } = useToast();
 
 const categorias = ref<any[]>([]);
 const modalAberto = ref(false);
@@ -79,13 +80,15 @@ const abrirEdicao = (c: any) => {
 const salvar = async () => {
   if (!editando.value.nome?.trim()) { erro.value = "Informe o nome."; return; }
   const payload = { nome: editando.value.nome, ativo: editando.value.ativo };
-  const query = editando.value.id
+  const ehEdicao = !!editando.value.id;
+  const query = ehEdicao
     ? supabase.from("categorias").update(payload).eq("id", editando.value.id)
     : supabase.from("categorias").insert(payload);
   const { error } = await query;
-  if (error) { erro.value = error.message; return; }
+  if (error) { erro.value = error.message; toastErro("Não foi possível salvar a categoria."); return; }
   modalAberto.value = false;
   await carregar();
+  sucesso(ehEdicao ? "Categoria atualizada com sucesso." : "Categoria criada com sucesso.");
 };
 
 await carregar();

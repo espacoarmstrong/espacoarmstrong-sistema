@@ -74,7 +74,6 @@
       <button class="btn btn-primary" @click="salvarPermissoes">Salvar permissões</button>
     </div>
 
-    <p v-if="mensagem" class="mensagem">{{ mensagem }}</p>
   </div>
 </template>
 
@@ -84,6 +83,7 @@ import { PERMISSOES, DIAS_SEMANA } from "~/types/permissoes";
 const route = useRoute();
 const supabase = useSupabaseClient();
 const { chamar } = useApi();
+const { sucesso, erro: toastErro } = useToast();
 
 const colaboradorId = route.params.id as string;
 
@@ -93,7 +93,6 @@ const procedimentosSelecionados = ref<string[]>([]);
 const horarios = ref<any[]>([]);
 const comissoes = ref<Record<string, number>>({});
 const permissoes = ref<Record<string, boolean>>({});
-const mensagem = ref("");
 
 const abaAtual = ref("dados");
 const abas = [
@@ -111,11 +110,6 @@ const permissoesPorGrupo = (grupo: string) => PERMISSOES.filter((p) => p.grupo =
 const procedimentosHabilitadosObjs = computed(() =>
   procedimentos.value.filter((p) => procedimentosSelecionados.value.includes(p.id))
 );
-
-const avisar = (texto: string) => {
-  mensagem.value = texto;
-  setTimeout(() => (mensagem.value = ""), 2500);
-};
 
 const carregar = async () => {
   const [{ data: colab }, { data: procs }, { data: relProc }, { data: hor }, { data: com }, { data: perms }] = await Promise.all([
@@ -141,46 +135,64 @@ const carregar = async () => {
 };
 
 const salvarDados = async () => {
-  await supabase.from("colaboradores").update({
+  const { error } = await supabase.from("colaboradores").update({
     nome: colaborador.value.nome, telefone: colaborador.value.telefone, cargo: colaborador.value.cargo,
   }).eq("id", colaboradorId);
-  avisar("Dados salvos.");
+  if (error) { toastErro("Não foi possível salvar os dados."); return; }
+  sucesso("Dados salvos com sucesso.");
 };
 
 const salvarProcedimentos = async () => {
   await supabase.from("colaborador_procedimentos").delete().eq("colaborador_id", colaboradorId);
   if (procedimentosSelecionados.value.length) {
-    await supabase.from("colaborador_procedimentos").insert(
+    const { error } = await supabase.from("colaborador_procedimentos").insert(
       procedimentosSelecionados.value.map((procedimento_id) => ({ colaborador_id: colaboradorId, procedimento_id }))
     );
+    if (error) { toastErro("Não foi possível salvar os procedimentos."); return; }
   }
-  avisar("Procedimentos salvos.");
+  sucesso("Procedimentos salvos com sucesso.");
 };
 
 const salvarHorarios = async () => {
-  await chamar(`/colaboradores/${colaboradorId}/horarios`, { method: "PUT", body: { horarios: horarios.value } });
-  avisar("Horários salvos.");
+  try {
+    await chamar(`/colaboradores/${colaboradorId}/horarios`, { method: "PUT", body: { horarios: horarios.value } });
+    sucesso("Horários salvos com sucesso.");
+  } catch (e: any) {
+    toastErro("Não foi possível salvar os horários.");
+  }
 };
 
 const salvarComissoes = async () => {
   const lista = procedimentosHabilitadosObjs.value.map((p) => ({
     procedimento_id: p.id, percentual: comissoes.value[p.id] || 0,
   }));
-  await chamar(`/colaboradores/${colaboradorId}/comissoes`, { method: "PUT", body: { comissoes: lista } });
-  avisar("Comissões salvas.");
+  try {
+    await chamar(`/colaboradores/${colaboradorId}/comissoes`, { method: "PUT", body: { comissoes: lista } });
+    sucesso("Comissões salvas com sucesso.");
+  } catch (e: any) {
+    toastErro("Não foi possível salvar as comissões.");
+  }
 };
 
 const salvarPermissoes = async () => {
   const lista = PERMISSOES.map((p) => ({ permissao: p.chave, concedida: !!permissoes.value[p.chave] }));
-  await chamar(`/colaboradores/${colaboradorId}/permissoes`, { method: "PUT", body: { permissoes: lista } });
-  avisar("Permissões salvas.");
+  try {
+    await chamar(`/colaboradores/${colaboradorId}/permissoes`, { method: "PUT", body: { permissoes: lista } });
+    sucesso("Permissões salvas com sucesso.");
+  } catch (e: any) {
+    toastErro("Não foi possível salvar as permissões.");
+  }
 };
 
 const alternarStatus = async () => {
   const novoStatus = !colaborador.value.ativo;
-  await chamar(`/colaboradores/${colaboradorId}/status`, { method: "PUT", body: { ativo: novoStatus } });
-  colaborador.value.ativo = novoStatus;
-  avisar(novoStatus ? "Colaborador ativado." : "Colaborador desativado.");
+  try {
+    await chamar(`/colaboradores/${colaboradorId}/status`, { method: "PUT", body: { ativo: novoStatus } });
+    colaborador.value.ativo = novoStatus;
+    sucesso(novoStatus ? "Colaborador ativado." : "Colaborador desativado.");
+  } catch (e: any) {
+    toastErro("Não foi possível alterar o status.");
+  }
 };
 
 await carregar();
@@ -202,5 +214,4 @@ await carregar();
 .linha-comissao { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
 .grupo-permissao { margin-bottom: 16px; }
 .grupo-titulo { font-size: 13px; color: var(--ink-muted); margin-bottom: 4px; }
-.mensagem { margin-top: 14px; color: var(--success); font-size: 13px; }
 </style>

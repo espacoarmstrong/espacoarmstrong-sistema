@@ -75,6 +75,7 @@
 <script setup lang="ts">
 const supabase = useSupabaseClient();
 const { podeAcao } = useUsuario();
+const { sucesso, erro: toastErro } = useToast();
 
 const clientes = ref<any[]>([]);
 const busca = ref("");
@@ -115,20 +116,24 @@ const salvar = async () => {
     observacoes: editando.value.observacoes,
     ativo: editando.value.ativo,
   };
-  const query = editando.value.id
+  const ehEdicao = !!editando.value.id;
+  const query = ehEdicao
     ? supabase.from("clientes").update(payload).eq("id", editando.value.id)
     : supabase.from("clientes").insert(payload);
   const { error } = await query;
-  if (error) { erro.value = error.message; return; }
+  if (error) { erro.value = error.message; toastErro("Não foi possível salvar o cliente."); return; }
   modalAberto.value = false;
   await carregar();
+  sucesso(ehEdicao ? "Cliente atualizado com sucesso." : "Cliente criado com sucesso.");
 };
 
 const confirmarExclusao = (c: any) => { excluindo.value = c; };
 const excluir = async () => {
-  await supabase.from("clientes").delete().eq("id", excluindo.value.id);
+  const { error } = await supabase.from("clientes").delete().eq("id", excluindo.value.id);
   excluindo.value = null;
+  if (error) { toastErro("Não foi possível excluir o cliente."); return; }
   await carregar();
+  sucesso("Cliente excluído com sucesso.");
 };
 
 await carregar();

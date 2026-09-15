@@ -62,6 +62,7 @@
 const supabase = useSupabaseClient();
 const { ehAdmin } = useUsuario();
 const { chamar } = useApi();
+const { sucesso, erro: toastErro } = useToast();
 
 const colaboradores = ref<any[]>([]);
 const modalAberto = ref(false);
@@ -90,8 +91,10 @@ const salvar = async () => {
     await chamar("/colaboradores", { method: "POST", body: novo.value });
     modalAberto.value = false;
     await carregar();
+    sucesso("Colaborador criado com sucesso.");
   } catch (e: any) {
     erro.value = e.message;
+    toastErro("Não foi possível criar o colaborador.");
   } finally {
     salvando.value = false;
   }

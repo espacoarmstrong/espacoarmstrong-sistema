@@ -4,6 +4,10 @@
     <p class="intro">Este é o painel do sistema. O Dashboard completo (faturamento, indicadores) chega numa fase futura — por enquanto, use o menu ao lado para gerenciar a base do sistema.</p>
 
     <div class="grade">
+      <NuxtLink v-if="podeAcao('agenda_visualizar')" to="/agenda" class="atalho card">
+        <h3>Agenda</h3>
+        <p>Agendamentos de horários</p>
+      </NuxtLink>
       <NuxtLink v-if="podeAcao('clientes_visualizar')" to="/clientes" class="atalho card">
         <h3>Clientes</h3>
         <p>Cadastro e histórico de clientes</p>

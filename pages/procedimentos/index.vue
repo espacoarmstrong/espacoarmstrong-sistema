@@ -80,6 +80,7 @@
 <script setup lang="ts">
 const supabase = useSupabaseClient();
 const { ehAdmin } = useUsuario();
+const { sucesso, erro: toastErro } = useToast();
 
 const procedimentos = ref<any[]>([]);
 const categorias = ref<any[]>([]);
@@ -130,13 +131,15 @@ const salvar = async () => {
     valor: editando.value.valor,
     ativo: editando.value.ativo,
   };
-  const query = editando.value.id
+  const ehEdicao = !!editando.value.id;
+  const query = ehEdicao
     ? supabase.from("procedimentos").update(payload).eq("id", editando.value.id)
     : supabase.from("procedimentos").insert(payload);
   const { error } = await query;
-  if (error) { erro.value = error.message; return; }
+  if (error) { erro.value = error.message; toastErro("Não foi possível salvar o procedimento."); return; }
   modalAberto.value = false;
   await carregar();
+  sucesso(ehEdicao ? "Procedimento atualizado com sucesso." : "Procedimento criado com sucesso.");
 };
 
 await carregar();
