@@ -2,8 +2,7 @@
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <span class="brand-mark">S</span>
-        <span class="brand-name">Salão</span>
+        <img src="/logo.png" alt="Espaço Armstrong" class="brand-logo" />
       </div>
       <nav class="nav">
         <NuxtLink to="/" class="nav-item">Dashboard</NuxtLink>
@@ -52,22 +51,13 @@ const sair = async () => {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 6px;
+  justify-content: center;
+  padding: 4px 6px 8px;
 }
-.brand-mark {
-  width: 32px; height: 32px;
-  border-radius: 9px;
-  background: var(--primary);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Fraunces', serif;
-  font-weight: 600;
-}
-.brand-name {
-  font-family: 'Fraunces', serif;
-  font-size: 18px;
-  font-weight: 600;
+.brand-logo {
+  width: 100%;
+  max-width: 160px;
+  border-radius: 8px;
 }
 .nav {
   display: flex;

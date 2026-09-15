@@ -8,10 +8,14 @@
     <div class="card" style="padding: 4px;">
       <table>
         <thead>
-          <tr><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th><th></th></tr>
+          <tr><th></th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="c in colaboradores" :key="c.id">
+            <td>
+              <img v-if="c.foto_url" :src="c.foto_url" class="avatar" />
+              <div v-else class="avatar">{{ (c.nome||'').trim().split(/\s+/).slice(0,2).map((p:string)=>p[0]?.toUpperCase()).join('') || '?' }}</div>
+            </td>
             <td>{{ c.nome }}</td>
             <td>{{ c.cargo || '—' }}</td>
             <td>{{ c.telefone || '—' }}</td>
@@ -20,7 +24,7 @@
               <NuxtLink :to="`/colaboradores/${c.id}`" class="btn btn-ghost">Gerenciar</NuxtLink>
             </td>
           </tr>
-          <tr v-if="!colaboradores.length"><td colspan="5" style="color:var(--ink-muted);">Nenhum colaborador cadastrado.</td></tr>
+          <tr v-if="!colaboradores.length"><td colspan="6" style="color:var(--ink-muted);">Nenhum colaborador cadastrado.</td></tr>
         </tbody>
       </table>
     </div>

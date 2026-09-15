@@ -18,10 +18,14 @@
 
     <!-- DADOS -->
     <div v-if="abaAtual === 'dados'" class="card conteudo">
+      <div class="field">
+        <label>Foto</label>
+        <UploadFoto :foto-url="colaborador.foto_url" :nome="colaborador.nome" @arquivo-selecionado="arquivoFoto = $event" />
+      </div>
       <div class="field"><label>Nome</label><input v-model="colaborador.nome" class="input" /></div>
       <div class="field"><label>Telefone</label><input v-model="colaborador.telefone" class="input" /></div>
       <div class="field"><label>Cargo / Função</label><input v-model="colaborador.cargo" class="input" /></div>
-      <button class="btn btn-primary" @click="salvarDados">Salvar dados</button>
+      <button class="btn btn-primary" :disabled="salvandoDados" @click="salvarDados">{{ salvandoDados ? 'Salvando...' : 'Salvar dados' }}</button>
     </div>
 
     <!-- PROCEDIMENTOS -->
@@ -84,10 +88,13 @@ const route = useRoute();
 const supabase = useSupabaseClient();
 const { chamar } = useApi();
 const { sucesso, erro: toastErro } = useToast();
+const { enviarFoto } = useUpload();
 
 const colaboradorId = route.params.id as string;
 
 const colaborador = ref<any>(null);
+const arquivoFoto = ref<File | null>(null);
+const salvandoDados = ref(false);
 const procedimentos = ref<any[]>([]);
 const procedimentosSelecionados = ref<string[]>([]);
 const horarios = ref<any[]>([]);
@@ -135,11 +142,25 @@ const carregar = async () => {
 };
 
 const salvarDados = async () => {
-  const { error } = await supabase.from("colaboradores").update({
-    nome: colaborador.value.nome, telefone: colaborador.value.telefone, cargo: colaborador.value.cargo,
-  }).eq("id", colaboradorId);
-  if (error) { toastErro("Não foi possível salvar os dados."); return; }
-  sucesso("Dados salvos com sucesso.");
+  salvandoDados.value = true;
+  try {
+    let fotoUrl = colaborador.value.foto_url;
+    if (arquivoFoto.value) {
+      fotoUrl = await enviarFoto(arquivoFoto.value, "colaboradores");
+    }
+    const { error } = await supabase.from("colaboradores").update({
+      nome: colaborador.value.nome, telefone: colaborador.value.telefone, cargo: colaborador.value.cargo,
+      foto_url: fotoUrl,
+    }).eq("id", colaboradorId);
+    if (error) { toastErro("Não foi possível salvar os dados."); return; }
+    colaborador.value.foto_url = fotoUrl;
+    arquivoFoto.value = null;
+    sucesso("Dados salvos com sucesso.");
+  } catch (e: any) {
+    toastErro(e.message || "Não foi possível salvar os dados.");
+  } finally {
+    salvandoDados.value = false;
+  }
 };
 
 const salvarProcedimentos = async () => {

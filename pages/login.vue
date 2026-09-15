@@ -2,8 +2,7 @@
   <div class="tela-login">
     <div class="card painel">
       <div class="marca">
-        <span class="marca-icone">S</span>
-        <h1>Salão</h1>
+        <img src="/logo.png" alt="Espaço Armstrong" class="marca-logo" />
       </div>
       <p class="subtitulo">Entre com seu e-mail e senha</p>
 
@@ -68,17 +67,13 @@ const entrar = async () => {
 .marca {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 4px;
+  justify-content: center;
+  margin-bottom: 8px;
 }
-.marca-icone {
-  width: 34px; height: 34px;
-  border-radius: 9px;
-  background: var(--primary);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Fraunces', serif;
-  font-weight: 600;
+.marca-logo {
+  width: 100%;
+  max-width: 220px;
+  border-radius: 10px;
 }
 .subtitulo {
   color: var(--ink-muted);

@@ -188,6 +188,37 @@ create trigger trg_agendamentos_updated_at
   for each row execute function set_updated_at();
 
 -- =========================================================
+-- 7.1 BLOQUEIOS DE HORÁRIO (folgas pontuais, almoço, etc.)
+-- =========================================================
+create table public.bloqueios_horario (
+  id uuid primary key default gen_random_uuid(),
+  colaborador_id uuid not null references public.colaboradores(id) on delete cascade,
+  data_inicio timestamptz not null,
+  data_fim timestamptz not null check (data_fim > data_inicio),
+  motivo text,
+  criado_por uuid references auth.users(id),
+  created_at timestamptz not null default now()
+);
+
+create index idx_bloqueios_colaborador on public.bloqueios_horario(colaborador_id, data_inicio);
+
+-- =========================================================
+-- STORAGE: bucket "fotos" (fotos de clientes e colaboradores)
+-- =========================================================
+insert into storage.buckets (id, name, public)
+values ('fotos', 'fotos', true)
+on conflict (id) do nothing;
+
+create policy "fotos_select_public" on storage.objects for select
+  using (bucket_id = 'fotos');
+create policy "fotos_insert_auth" on storage.objects for insert
+  with check (bucket_id = 'fotos' and auth.role() = 'authenticated');
+create policy "fotos_update_auth" on storage.objects for update
+  using (bucket_id = 'fotos' and auth.role() = 'authenticated');
+create policy "fotos_delete_auth" on storage.objects for delete
+  using (bucket_id = 'fotos' and auth.role() = 'authenticated');
+
+-- =========================================================
 -- FUNÇÕES AUXILIARES DE PERMISSÃO (usadas nas policies)
 -- =========================================================
 create or replace function public.is_admin()
@@ -226,6 +257,7 @@ alter table public.colaborador_comissoes enable row level security;
 alter table public.colaborador_permissoes enable row level security;
 alter table public.clientes enable row level security;
 alter table public.agendamentos enable row level security;
+alter table public.bloqueios_horario enable row level security;
 
 -- USUÁRIOS: cada um vê o próprio registro; admin vê todos
 create policy usuarios_select on public.usuarios for select
@@ -297,3 +329,11 @@ create policy agendamentos_update on public.agendamentos for update
   using (public.tem_permissao('agenda_editar') or public.tem_permissao('agenda_cancelar'));
 create policy agendamentos_delete on public.agendamentos for delete
   using (public.is_admin());
+
+-- BLOQUEIOS DE HORÁRIO
+create policy bloqueios_select on public.bloqueios_horario for select
+  using (public.tem_permissao('agenda_visualizar'));
+create policy bloqueios_insert on public.bloqueios_horario for insert
+  with check (public.tem_permissao('agenda_editar'));
+create policy bloqueios_delete on public.bloqueios_horario for delete
+  using (public.tem_permissao('agenda_editar'));
