@@ -438,7 +438,7 @@ const salvar = async () => {
     observacoes: editando.value.observacoes,
     status: editando.value.status || "agendado",
     motivo_cancelamento: editando.value.status === "cancelado" ? editando.value.motivo_cancelamento : null,
-    forma_pagamento: editando.value.status === "concluido" ? editando.value.forma_pagamento : null,
+    forma_pagamento: editando.value.status === "concluido" && editando.value.forma_pagamento ? editando.value.forma_pagamento : null,
     parcelas: editando.value.status === "concluido" && editando.value.forma_pagamento === "credito" ? (editando.value.parcelas || 1) : null,
   };
   const ehEdicao = !!editando.value.id;
