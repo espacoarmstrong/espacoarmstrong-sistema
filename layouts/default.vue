@@ -12,6 +12,7 @@
         <NuxtLink v-if="podeAcao('procedimentos_visualizar')" to="/procedimentos" class="nav-item">Procedimentos</NuxtLink>
         <NuxtLink v-if="ehAdmin" to="/categorias" class="nav-item">Categorias</NuxtLink>
         <NuxtLink v-if="podeAcao('colaboradores_visualizar')" to="/colaboradores" class="nav-item">Colaboradores</NuxtLink>
+        <NuxtLink v-if="podeAcao('remuneracao_visualizar')" to="/remuneracao" class="nav-item">Remuneração</NuxtLink>
       </nav>
       <button class="btn btn-ghost sair" @click="sair">Sair</button>
     </aside>

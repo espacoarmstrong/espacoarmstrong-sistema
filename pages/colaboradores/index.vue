@@ -32,26 +32,31 @@
     <div v-if="modalAberto" class="modal-backdrop" @click.self="modalAberto = false">
       <div class="modal">
         <h2 style="margin-bottom:16px;">Novo colaborador</h2>
+        <form autocomplete="off" @submit.prevent="salvar">
+        <!-- campos-isca: fazem o navegador salvar autopreenchimento aqui em vez dos campos reais -->
+        <input type="text" name="fakeusernameremembered" style="display:none" tabindex="-1" />
+        <input type="password" name="fakepasswordremembered" style="display:none" tabindex="-1" />
         <div class="field">
           <label>Nome</label>
-          <input v-model="novo.nome" class="input" />
+          <input v-model="novo.nome" class="input" autocomplete="off" />
         </div>
         <div class="field">
           <label>Telefone</label>
-          <input v-model="novo.telefone" class="input" />
+          <input v-model="novo.telefone" class="input" autocomplete="off" />
         </div>
         <div class="field">
           <label>Cargo / Função</label>
-          <input v-model="novo.cargo" class="input" />
+          <input v-model="novo.cargo" class="input" autocomplete="off" />
         </div>
         <div class="field">
           <label>E-mail de acesso</label>
-          <input v-model="novo.email" type="email" class="input" />
+          <input v-model="novo.email" type="email" class="input" name="colab_email_novo" autocomplete="off" />
         </div>
         <div class="field">
           <label>Senha provisória</label>
-          <input v-model="novo.senha" type="password" class="input" />
+          <input v-model="novo.senha" type="password" class="input" name="colab_senha_novo" autocomplete="new-password" />
         </div>
+        </form>
         <p v-if="erro" class="erro-msg">{{ erro }}</p>
         <div style="display:flex; gap:10px; margin-top: 8px;">
           <button class="btn btn-primary" :disabled="salvando" @click="salvar">{{ salvando ? 'Salvando...' : 'Criar colaborador' }}</button>

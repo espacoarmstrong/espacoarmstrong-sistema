@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
       "clientes_visualizar", "clientes_criar", "clientes_editar", "clientes_excluir",
       "comanda_visualizar", "comanda_finalizar", "comanda_registrar_pagamento", "comanda_aplicar_desconto",
       "procedimentos_visualizar", "colaboradores_visualizar", "dashboard_visualizar",
+      "remuneracao_visualizar", "remuneracao_pagar",
     ];
     await admin.from("colaborador_permissoes").insert(
       chaves.map((permissao) => ({ colaborador_id: colaborador.id, permissao, concedida: false }))

@@ -134,7 +134,8 @@ create type public.permissao_chave as enum (
   'agenda_visualizar', 'agenda_criar', 'agenda_editar', 'agenda_cancelar',
   'clientes_visualizar', 'clientes_criar', 'clientes_editar', 'clientes_excluir',
   'comanda_visualizar', 'comanda_finalizar', 'comanda_registrar_pagamento', 'comanda_aplicar_desconto',
-  'procedimentos_visualizar', 'colaboradores_visualizar', 'dashboard_visualizar'
+  'procedimentos_visualizar', 'colaboradores_visualizar', 'dashboard_visualizar',
+  'remuneracao_visualizar', 'remuneracao_pagar'
 );
 
 create table public.colaborador_permissoes (
@@ -165,6 +166,20 @@ create trigger trg_clientes_updated_at
   for each row execute function set_updated_at();
 
 -- =========================================================
+-- 6.5 REMUNERAÇÃO (pagamentos de comissão aos colaboradores)
+-- =========================================================
+create table public.remuneracoes_pagamentos (
+  id uuid primary key default gen_random_uuid(),
+  colaborador_id uuid not null references public.colaboradores(id),
+  valor_total numeric(10,2) not null,
+  observacoes text,
+  pago_em timestamptz not null default now(),
+  pago_por uuid references auth.users(id)
+);
+
+create index idx_remuneracoes_colaborador on public.remuneracoes_pagamentos(colaborador_id, pago_em);
+
+-- =========================================================
 -- 7. AGENDAMENTOS
 -- =========================================================
 create table public.agendamentos (
@@ -180,6 +195,9 @@ create table public.agendamentos (
   parcelas smallint check (parcelas between 1 and 24),
   valor_desconto numeric(10,2) not null default 0 check (valor_desconto >= 0),
   data_pagamento timestamptz,
+  percentual_comissao numeric(5,2),
+  valor_comissao numeric(10,2),
+  remuneracao_pagamento_id uuid references public.remuneracoes_pagamentos(id),
   criado_por uuid references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -187,10 +205,77 @@ create table public.agendamentos (
 
 create index idx_agendamentos_colaborador on public.agendamentos(colaborador_id, data_hora);
 create index idx_agendamentos_data on public.agendamentos(data_hora);
+create index idx_agendamentos_remuneracao on public.agendamentos(colaborador_id, remuneracao_pagamento_id);
 
 create trigger trg_agendamentos_updated_at
   before update on public.agendamentos
   for each row execute function set_updated_at();
+
+-- Calcula automaticamente a comissão (percentual e valor) sempre que a comanda é paga.
+-- Não recalcula se o atendimento já tiver sido incluído em um pagamento de remuneração.
+create or replace function public.calcular_comissao_agendamento()
+returns trigger as $$
+declare
+  v_valor_procedimento numeric(10,2);
+  v_percentual numeric(5,2);
+begin
+  if new.remuneracao_pagamento_id is not null then
+    return new;
+  end if;
+  if new.forma_pagamento is null then
+    new.valor_comissao := null;
+    new.percentual_comissao := null;
+    return new;
+  end if;
+  select valor into v_valor_procedimento from public.procedimentos where id = new.procedimento_id;
+  select percentual into v_percentual from public.colaborador_comissoes
+    where colaborador_id = new.colaborador_id and procedimento_id = new.procedimento_id;
+  v_percentual := coalesce(v_percentual, 0);
+  new.percentual_comissao := v_percentual;
+  new.valor_comissao := round((coalesce(v_valor_procedimento,0) - coalesce(new.valor_desconto,0)) * v_percentual / 100, 2);
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger trg_calcular_comissao
+  before insert or update on public.agendamentos
+  for each row execute function public.calcular_comissao_agendamento();
+
+-- Registra o pagamento de remuneração de um colaborador e trava os atendimentos incluídos
+create or replace function public.registrar_remuneracao(
+  p_colaborador_id uuid,
+  p_agendamento_ids uuid[],
+  p_observacoes text default null
+)
+returns public.remuneracoes_pagamentos as $$
+declare
+  v_total numeric(10,2);
+  v_pagamento public.remuneracoes_pagamentos;
+begin
+  if not public.tem_permissao('remuneracao_pagar') then
+    raise exception 'Sem permissão para pagar remuneração';
+  end if;
+
+  select coalesce(sum(valor_comissao), 0) into v_total
+  from public.agendamentos
+  where id = any(p_agendamento_ids)
+    and colaborador_id = p_colaborador_id
+    and remuneracao_pagamento_id is null
+    and valor_comissao is not null;
+
+  insert into public.remuneracoes_pagamentos (colaborador_id, valor_total, observacoes, pago_por)
+  values (p_colaborador_id, v_total, p_observacoes, auth.uid())
+  returning * into v_pagamento;
+
+  update public.agendamentos
+  set remuneracao_pagamento_id = v_pagamento.id
+  where id = any(p_agendamento_ids)
+    and colaborador_id = p_colaborador_id
+    and remuneracao_pagamento_id is null;
+
+  return v_pagamento;
+end;
+$$ language plpgsql security definer;
 
 -- =========================================================
 -- 7.1 BLOQUEIOS DE HORÁRIO (folgas pontuais, almoço, etc.)
@@ -325,9 +410,17 @@ create policy clientes_update on public.clientes for update
 create policy clientes_delete on public.clientes for delete
   using (public.tem_permissao('clientes_excluir'));
 
+-- REMUNERAÇÃO (inserts/updates só acontecem via função registrar_remuneracao, security definer)
+alter table public.remuneracoes_pagamentos enable row level security;
+create policy remuneracoes_select on public.remuneracoes_pagamentos for select
+  using (public.tem_permissao('remuneracao_visualizar'));
+
 -- AGENDAMENTOS (admin sempre tem acesso; colaborador precisa da permissão concedida)
 create policy agendamentos_select on public.agendamentos for select
-  using (public.tem_permissao('agenda_visualizar') or public.tem_permissao('comanda_visualizar'));
+  using (
+    public.tem_permissao('agenda_visualizar') or public.tem_permissao('comanda_visualizar')
+    or public.tem_permissao('remuneracao_visualizar')
+  );
 create policy agendamentos_insert on public.agendamentos for insert
   with check (public.tem_permissao('agenda_criar'));
 create policy agendamentos_update on public.agendamentos for update

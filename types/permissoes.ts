@@ -11,6 +11,8 @@ export const PERMISSOES = [
   { chave: "comanda_finalizar", label: "Finalizar comanda", grupo: "Comanda / Pagamento" },
   { chave: "comanda_registrar_pagamento", label: "Registrar pagamento", grupo: "Comanda / Pagamento" },
   { chave: "comanda_aplicar_desconto", label: "Aplicar desconto", grupo: "Comanda / Pagamento" },
+  { chave: "remuneracao_visualizar", label: "Visualizar remuneração", grupo: "Remuneração" },
+  { chave: "remuneracao_pagar", label: "Registrar pagamento de remuneração", grupo: "Remuneração" },
   { chave: "procedimentos_visualizar", label: "Visualizar procedimentos", grupo: "Outros" },
   { chave: "colaboradores_visualizar", label: "Visualizar colaboradores", grupo: "Outros" },
   { chave: "dashboard_visualizar", label: "Visualizar dashboard", grupo: "Outros" },

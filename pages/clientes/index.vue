@@ -24,6 +24,7 @@
             <td>{{ c.telefone || '—' }}</td>
             <td><span :class="['badge', c.ativo ? 'badge-success' : 'badge-danger']">{{ c.ativo ? 'Ativo' : 'Inativo' }}</span></td>
             <td style="text-align:right;">
+              <NuxtLink :to="`/clientes/${c.id}`" class="btn btn-ghost">Histórico</NuxtLink>
               <button v-if="podeAcao('clientes_editar')" class="btn btn-ghost" @click="abrirEdicao(c)">Editar</button>
               <button v-if="podeAcao('clientes_excluir')" class="btn btn-danger" @click="confirmarExclusao(c)">Excluir</button>
             </td>
