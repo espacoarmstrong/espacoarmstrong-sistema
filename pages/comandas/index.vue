@@ -40,16 +40,29 @@
               </span>
             </td>
             <td>{{ c.pago ? labelPagamento(c) : '—' }}</td>
-            <td style="text-align:right;">
+            <td style="text-align:right; white-space:nowrap;">
               <button v-if="podeAcao('comanda_registrar_pagamento')" class="btn btn-ghost" @click="abrirPagamento(c)">
                 {{ c.pago ? 'Editar pagamento' : 'Registrar pagamento' }}
               </button>
+              <button v-if="ehAdmin" class="btn btn-danger" @click="confirmarExclusaoComanda(c)">Excluir</button>
             </td>
           </tr>
           <tr v-if="!filtradas.length"><td colspan="8" style="color:var(--ink-muted);">Nenhuma comanda encontrada.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <!-- MODAL: excluir comanda -->
+    <ConfirmarExclusao
+      v-if="excluindo"
+      titulo="Excluir comanda?"
+      :mensagem="excluindo.pago
+        ? 'Esta comanda já está paga. Excluir vai apagar o agendamento, o pagamento registrado e a comissão gerada. Essa ação não pode ser desfeita.'
+        : 'Essa ação não pode ser desfeita.'"
+      :dupla="!!excluindo.pago"
+      @confirmar="excluirComanda"
+      @cancelar="excluindo = null"
+    />
 
     <!-- MODAL: registrar pagamento -->
     <div v-if="pagando" class="modal-backdrop" @click.self="pagando = null">
@@ -83,7 +96,7 @@
 
 <script setup lang="ts">
 const supabase = useSupabaseClient();
-const { podeAcao } = useUsuario();
+const { podeAcao, ehAdmin } = useUsuario();
 const { sucesso, erro: toastErro } = useToast();
 
 const comandas = ref<any[]>([]);
@@ -94,6 +107,7 @@ const pagando = ref<any>(null);
 const pagamentoForm = ref<any>({ valor_desconto: 0, pagamentos: [] as any[] });
 const erro = ref("");
 const salvando = ref(false);
+const excluindo = ref<any>(null);
 
 const carregar = async () => {
   const { data } = await supabase
@@ -170,6 +184,15 @@ const salvarPagamento = async () => {
   pagando.value = null;
   await carregar();
   sucesso("Pagamento registrado com sucesso.");
+};
+
+const confirmarExclusaoComanda = (c: any) => { excluindo.value = c; };
+const excluirComanda = async () => {
+  const { error } = await supabase.from("agendamentos").delete().eq("id", excluindo.value.id);
+  excluindo.value = null;
+  if (error) { toastErro("Não foi possível excluir a comanda."); return; }
+  await carregar();
+  sucesso("Comanda excluída com sucesso.");
 };
 
 await carregar();

@@ -149,9 +149,14 @@
         </div>
 
         <template v-if="editando?.status === 'concluido'">
+          <div class="field" v-if="podeAcao('comanda_aplicar_desconto')">
+            <label>Desconto (R$)</label>
+            <input v-model.number="editandoDesconto" type="number" min="0" step="0.01" class="input" />
+            <p class="valor-procedimento">Total a pagar: <strong>{{ formatarValor(totalAPagarEdicao) }}</strong></p>
+          </div>
           <div class="field">
             <label>Pagamento (opcional — pode registrar depois em Comandas)</label>
-            <FormaPagamentoMultipla v-if="mostrarPagamento" v-model="editandoPagamentos" :total="procedimentoSelecionado?.valor || 0" />
+            <FormaPagamentoMultipla v-if="mostrarPagamento" v-model="editandoPagamentos" :total="totalAPagarEdicao" />
             <button v-else type="button" class="btn btn-ghost" style="padding:6px 10px; font-size:13px;" @click="mostrarPagamento = true">+ Registrar pagamento agora</button>
           </div>
         </template>
@@ -161,13 +166,26 @@
           <textarea v-model="editando.observacoes" class="input" rows="2"></textarea>
         </div>
         <p v-if="erro" class="erro-msg">{{ erro }}</p>
-        <div style="display:flex; gap:10px; margin-top: 8px;">
+        <div style="display:flex; gap:10px; margin-top: 8px; flex-wrap: wrap;">
           <button class="btn btn-primary" @click="salvar">Salvar</button>
           <button v-if="editando?.id && podeAcao('agenda_cancelar') && editando.status !== 'cancelado'" class="btn btn-danger" @click="editando.status = 'cancelado'">Cancelar agendamento</button>
+          <button v-if="editando?.id && ehAdmin" class="btn btn-danger" @click="confirmarExclusaoAgendamento(editando)">Excluir agendamento</button>
           <button class="btn btn-ghost" @click="modalAberto = false">Fechar</button>
         </div>
       </div>
     </div>
+
+    <!-- MODAL: excluir agendamento -->
+    <ConfirmarExclusao
+      v-if="excluindo"
+      titulo="Excluir agendamento?"
+      :mensagem="excluindo.pago
+        ? 'Este atendimento já foi concluído e pago. Excluir vai apagar também o registro de pagamento e a comissão gerada. Essa ação não pode ser desfeita.'
+        : 'Essa ação não pode ser desfeita.'"
+      :dupla="!!excluindo.pago"
+      @confirmar="excluirAgendamento"
+      @cancelar="excluindo = null"
+    />
 
     <!-- MODAL: bloquear horário -->
     <div v-if="bloqueando" class="modal-backdrop" @click.self="bloqueando = null">
@@ -212,7 +230,7 @@
 
 <script setup lang="ts">
 const supabase = useSupabaseClient();
-const { podeAcao } = useUsuario();
+const { podeAcao, ehAdmin } = useUsuario();
 const { sucesso, erro: toastErro } = useToast();
 
 // ---------- constantes de grade ----------
@@ -242,10 +260,13 @@ const editando = ref<any>({ cliente_id: "", procedimento_id: "", colaborador_id:
 const editandoData = ref(dataAtual.value);
 const editandoHora = ref("09:00");
 const editandoPagamentos = ref<any[]>([]);
+const editandoDesconto = ref(0);
 const mostrarPagamento = ref(false);
 const erro = ref("");
+const excluindo = ref<any>(null);
 
 const procedimentoSelecionado = computed(() => procedimentos.value.find((p) => p.id === editando.value.procedimento_id));
+const totalAPagarEdicao = computed(() => (procedimentoSelecionado.value?.valor || 0) - (editandoDesconto.value || 0));
 const formatarValor = (v: number) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const modoBloqueio = ref(false);
@@ -309,7 +330,7 @@ const carregarBase = async () => {
   const [{ data: col }, { data: cli }, { data: proc }] = await Promise.all([
     supabase.from("colaboradores").select("id, nome, foto_url").eq("ativo", true).order("nome"),
     supabase.from("clientes").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("procedimentos").select("id, nome, duracao_minutos").eq("ativo", true).order("nome"),
+    supabase.from("procedimentos").select("id, nome, duracao_minutos, valor").eq("ativo", true).order("nome"),
   ]);
   colaboradores.value = col || [];
   clientes.value = cli || [];
@@ -404,6 +425,7 @@ const abrirNovo = (colaboradorId = "", hora = "09:00") => {
   editandoData.value = dataAtual.value;
   editandoHora.value = hora;
   editandoPagamentos.value = [];
+  editandoDesconto.value = 0;
   mostrarPagamento.value = false;
   erro.value = "";
   modalAberto.value = true;
@@ -416,6 +438,7 @@ const abrirEdicao = async (a: any) => {
   editandoHora.value = dt.toTimeString().slice(0, 5);
   erro.value = "";
   editandoPagamentos.value = [];
+  editandoDesconto.value = a.valor_desconto || 0;
   mostrarPagamento.value = false;
   if (a.status === "concluido" && a.pago) {
     const { data } = await supabase.from("pagamentos_comanda").select("*").eq("agendamento_id", a.id);
@@ -439,7 +462,7 @@ const salvar = async () => {
   const linhasValidas = (editandoPagamentos.value || []).filter((p: any) => p.forma_pagamento && p.valor > 0);
   if (mostrarPagamento.value && linhasValidas.length) {
     const somado = linhasValidas.reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
-    const total = procedimentoSelecionado.value?.valor || 0;
+    const total = totalAPagarEdicao.value;
     if (Math.round((somado - total) * 100) !== 0) {
       erro.value = "A soma das formas de pagamento precisa ser igual ao valor do procedimento.";
       return;
@@ -473,7 +496,7 @@ const salvar = async () => {
         valor: p.valor,
         parcelas: p.forma_pagamento === "credito" ? (p.parcelas || 1) : null,
       })),
-      p_valor_desconto: 0,
+      p_valor_desconto: podeAcao("comanda_aplicar_desconto") ? (editandoDesconto.value || 0) : 0,
     });
     if (erroPagamento) { erro.value = erroPagamento.message; toastErro("Agendamento salvo, mas o pagamento não pôde ser registrado."); return; }
   }
@@ -507,6 +530,19 @@ const confirmarLiberacao = async () => {
   if (error) { toastErro("Não foi possível liberar o horário."); return; }
   await carregarPeriodo();
   sucesso("Horário liberado com sucesso.");
+};
+
+// ---------- excluir agendamento ----------
+const confirmarExclusaoAgendamento = (a: any) => {
+  modalAberto.value = false;
+  excluindo.value = a;
+};
+const excluirAgendamento = async () => {
+  const { error } = await supabase.from("agendamentos").delete().eq("id", excluindo.value.id);
+  excluindo.value = null;
+  if (error) { toastErro("Não foi possível excluir o agendamento."); return; }
+  await carregarPeriodo();
+  sucesso("Agendamento excluído com sucesso.");
 };
 
 await carregarBase();
