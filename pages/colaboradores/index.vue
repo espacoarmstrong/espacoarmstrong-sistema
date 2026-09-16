@@ -8,24 +8,26 @@
     <div class="card tabela-wrap">
       <table>
         <thead>
-          <tr><th></th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th><th></th></tr>
+          <tr><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="c in colaboradores" :key="c.id">
-            <td>
-              <img v-if="c.foto_url" :src="c.foto_url" class="avatar" />
-              <div v-else class="avatar">{{ (c.nome||'').trim().split(/\s+/).slice(0,2).map((p:string)=>p[0]?.toUpperCase()).join('') || '?' }}</div>
+            <td data-label="Nome">
+              <div class="linha-nome">
+                <img v-if="c.foto_url" :src="c.foto_url" class="avatar" />
+                <div v-else class="avatar">{{ (c.nome||'').trim().split(/\s+/).slice(0,2).map((p:string)=>p[0]?.toUpperCase()).join('') || '?' }}</div>
+                <span>{{ c.nome }}</span>
+              </div>
             </td>
-            <td>{{ c.nome }}</td>
-            <td>{{ c.cargo || '—' }}</td>
-            <td>{{ c.telefone || '—' }}</td>
-            <td><span :class="['badge', c.ativo ? 'badge-success' : 'badge-danger']">{{ c.ativo ? 'Ativo' : 'Inativo' }}</span></td>
+            <td data-label="Cargo">{{ c.cargo || '—' }}</td>
+            <td data-label="Telefone">{{ c.telefone || '—' }}</td>
+            <td data-label="Status"><span :class="['badge', c.ativo ? 'badge-success' : 'badge-danger']">{{ c.ativo ? 'Ativo' : 'Inativo' }}</span></td>
             <td style="text-align:right; white-space:nowrap;">
               <NuxtLink :to="`/colaboradores/${c.id}`" class="btn btn-ghost">Gerenciar</NuxtLink>
               <button v-if="ehAdmin" class="btn btn-danger" @click="confirmarExclusao(c)">Excluir</button>
             </td>
           </tr>
-          <tr v-if="!colaboradores.length"><td colspan="6" style="color:var(--ink-muted);">Nenhum colaborador cadastrado.</td></tr>
+          <tr v-if="!colaboradores.length" class="linha-vazia"><td colspan="5" style="color:var(--ink-muted);">Nenhum colaborador cadastrado.</td></tr>
         </tbody>
       </table>
     </div>

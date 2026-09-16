@@ -269,4 +269,15 @@ await carregar();
 .linha-comissao { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
 .grupo-permissao { margin-bottom: 16px; }
 .grupo-titulo { font-size: 13px; color: var(--ink-muted); margin-bottom: 4px; }
+
+@media (max-width: 640px) {
+  .conteudo { padding: 16px; }
+  .conteudo > .btn { width: 100%; justify-content: center; }
+  /* nome do procedimento quebra em vez de espremer o campo de % */
+  .linha-comissao { flex-wrap: wrap; border-bottom: 1px solid var(--border); padding: 10px 0; }
+  .linha-comissao:last-of-type { border-bottom: none; }
+  .linha-comissao > span:first-child { flex: 1 1 100%; font-size: 14px; }
+  .linha-check { align-items: flex-start; }
+  .folga-check { width: auto; }
+}
 </style>

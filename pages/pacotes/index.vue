@@ -21,10 +21,10 @@
         </thead>
         <tbody>
           <tr v-for="p in pacotes" :key="p.id">
-            <td>{{ p.nome }}</td>
-            <td>{{ p.validade_dias }} dias</td>
-            <td>{{ (p.pacote_itens || []).map(i => `${i.quantidade}x ${i.procedimentos?.nome || '—'}`).join(', ') || '—' }}</td>
-            <td><span :class="['badge', p.ativo ? 'badge-success' : 'badge-danger']">{{ p.ativo ? 'Ativo' : 'Inativo' }}</span></td>
+            <td data-label="Nome">{{ p.nome }}</td>
+            <td data-label="Validade">{{ p.validade_dias }} dias</td>
+            <td data-label="Itens">{{ (p.pacote_itens || []).map(i => `${i.quantidade}x ${i.procedimentos?.nome || '—'}`).join(', ') || '—' }}</td>
+            <td data-label="Status"><span :class="['badge', p.ativo ? 'badge-success' : 'badge-danger']">{{ p.ativo ? 'Ativo' : 'Inativo' }}</span></td>
             <td style="text-align:right; white-space:nowrap;">
               <button v-if="ehAdmin" class="btn btn-ghost" @click="abrirEdicaoPacote(p)">Editar</button>
               <button v-if="ehAdmin" class="btn" :class="p.ativo ? 'btn-danger' : 'btn-ghost'" @click="alternarAtivoPacote(p)">
@@ -33,7 +33,7 @@
               <button v-if="ehAdmin" class="btn btn-danger" @click="confirmarExclusaoPacote(p)">Excluir</button>
             </td>
           </tr>
-          <tr v-if="!pacotes.length"><td colspan="5" style="color:var(--ink-muted);">Nenhum pacote cadastrado.</td></tr>
+          <tr v-if="!pacotes.length" class="linha-vazia"><td colspan="5" style="color:var(--ink-muted);">Nenhum pacote cadastrado.</td></tr>
         </tbody>
       </table>
     </div>
@@ -51,22 +51,22 @@
           </thead>
           <tbody>
             <tr v-for="v in vendasFiltradas" :key="v.id">
-              <td>{{ v.clientes?.nome || '—' }}</td>
-              <td>{{ v.pacote_nome }}</td>
-              <td>{{ formatarData(v.data_compra) }}</td>
-              <td>{{ formatarDataCurta(v.data_validade) }}</td>
-              <td>
+              <td data-label="Cliente">{{ v.clientes?.nome || '—' }}</td>
+              <td data-label="Pacote">{{ v.pacote_nome }}</td>
+              <td data-label="Compra">{{ formatarData(v.data_compra) }}</td>
+              <td data-label="Validade">{{ formatarDataCurta(v.data_validade) }}</td>
+              <td data-label="Saldo">
                 <div v-for="item in v.pacote_venda_itens" :key="item.id" class="saldo-linha">
                   {{ item.procedimento_nome }}: {{ item.quantidade_total - item.quantidade_usada }}/{{ item.quantidade_total }}
                 </div>
               </td>
-              <td><span :class="['badge', badgeVenda(v).classe]">{{ badgeVenda(v).texto }}</span></td>
+              <td data-label="Status"><span :class="['badge', badgeVenda(v).classe]">{{ badgeVenda(v).texto }}</span></td>
               <td style="text-align:right; white-space:nowrap;">
                 <button v-if="ehAdmin && v.status === 'ativo' && estaVencido(v)" class="btn btn-ghost" @click="abrirReativacao(v)">Reativar / estender</button>
                 <button v-if="ehAdmin && v.status === 'ativo'" class="btn btn-danger" @click="confirmarCancelamento(v)">Cancelar</button>
               </td>
             </tr>
-            <tr v-if="!vendasFiltradas.length"><td colspan="7" style="color:var(--ink-muted);">Nenhuma venda de pacote encontrada.</td></tr>
+            <tr v-if="!vendasFiltradas.length" class="linha-vazia"><td colspan="7" style="color:var(--ink-muted);">Nenhuma venda de pacote encontrada.</td></tr>
           </tbody>
         </table>
       </div>

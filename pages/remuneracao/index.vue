@@ -17,9 +17,9 @@
         </thead>
         <tbody>
           <tr v-for="r in resumoPorColaborador" :key="r.colaborador_id">
-            <td>{{ r.nome }}</td>
-            <td>{{ r.itens.length }}</td>
-            <td>{{ formatarValor(r.total) }}</td>
+            <td data-label="Colaborador">{{ r.nome }}</td>
+            <td data-label="Atendimentos pendentes">{{ r.itens.length }}</td>
+            <td data-label="Comissão pendente">{{ formatarValor(r.total) }}</td>
             <td style="text-align:right;">
               <button class="btn btn-ghost" :disabled="!r.itens.length" @click="abrirDescricao(r)">Descrição</button>
               <button v-if="podeAcao('remuneracao_pagar')" class="btn btn-ghost" :disabled="!r.itens.length" @click="abrirPagamento(r)">
@@ -27,7 +27,7 @@
               </button>
             </td>
           </tr>
-          <tr v-if="!resumoPorColaborador.length"><td colspan="4" style="color:var(--ink-muted);">Nenhuma comissão pendente.</td></tr>
+          <tr v-if="!resumoPorColaborador.length" class="linha-vazia"><td colspan="4" style="color:var(--ink-muted);">Nenhuma comissão pendente.</td></tr>
         </tbody>
       </table>
     </div>
@@ -40,12 +40,12 @@
         </thead>
         <tbody>
           <tr v-for="p in pagamentos" :key="p.id">
-            <td>{{ p.colaboradores?.nome || '—' }}</td>
-            <td>{{ formatarData(p.pago_em) }}</td>
-            <td>{{ formatarValor(p.valor_total) }}</td>
-            <td>{{ p.observacoes || '—' }}</td>
+            <td data-label="Colaborador">{{ p.colaboradores?.nome || '—' }}</td>
+            <td data-label="Data">{{ formatarData(p.pago_em) }}</td>
+            <td data-label="Valor">{{ formatarValor(p.valor_total) }}</td>
+            <td data-label="Observações">{{ p.observacoes || '—' }}</td>
           </tr>
-          <tr v-if="!pagamentos.length"><td colspan="4" style="color:var(--ink-muted);">Nenhum pagamento registrado ainda.</td></tr>
+          <tr v-if="!pagamentos.length" class="linha-vazia"><td colspan="4" style="color:var(--ink-muted);">Nenhum pagamento registrado ainda.</td></tr>
         </tbody>
       </table>
     </div>
@@ -63,11 +63,11 @@
             </thead>
             <tbody>
               <tr v-for="item in detalhando.itens" :key="item.id">
-                <td>{{ formatarData(item.data_hora) }}</td>
-                <td>{{ item.procedimentos?.nome || '—' }}</td>
-                <td>{{ formatarValor(item.procedimentos?.valor || 0) }}</td>
-                <td>{{ item.percentual_comissao ?? 0 }}%</td>
-                <td>{{ formatarValor(item.valor_comissao) }}</td>
+                <td data-label="Data">{{ formatarData(item.data_hora) }}</td>
+                <td data-label="Procedimento">{{ item.procedimentos?.nome || '—' }}</td>
+                <td data-label="Valor do procedimento">{{ formatarValor(item.procedimentos?.valor || 0) }}</td>
+                <td data-label="% remuneração">{{ item.percentual_comissao ?? 0 }}%</td>
+                <td data-label="Comissão">{{ formatarValor(item.valor_comissao) }}</td>
               </tr>
             </tbody>
           </table>
@@ -213,4 +213,12 @@ await Promise.all([carregarPendentes(), carregarHistorico()]);
 .lista-itens { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 .linha-check { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 6px 2px; border-bottom: 1px solid var(--border); }
 .erro-msg { color: var(--danger); font-size: 13px; margin: -6px 0 10px; }
+
+@media (max-width: 640px) {
+  .aba { padding: 10px 12px; font-size: 13px; }
+  /* itens do pagamento: descrição quebra em várias linhas, valor não encolhe */
+  .linha-check { align-items: flex-start; padding: 10px 2px; line-height: 1.4; }
+  .linha-check > span:last-of-type { flex-shrink: 0; font-weight: 600; }
+  .lista-itens { max-height: 50vh; }
+}
 </style>

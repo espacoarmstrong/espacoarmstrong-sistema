@@ -31,15 +31,15 @@
           </thead>
           <tbody>
             <tr v-for="v in pacotesCliente" :key="v.id">
-              <td>{{ v.pacote_nome }}</td>
-              <td>{{ formatarData(v.data_compra) }}</td>
-              <td>{{ formatarDataCurta(v.data_validade) }}</td>
-              <td>
+              <td data-label="Pacote">{{ v.pacote_nome }}</td>
+              <td data-label="Compra">{{ formatarData(v.data_compra) }}</td>
+              <td data-label="Validade">{{ formatarDataCurta(v.data_validade) }}</td>
+              <td data-label="Saldo">
                 <div v-for="item in v.pacote_venda_itens" :key="item.id" class="saldo-linha">
                   {{ item.procedimento_nome }}: {{ item.quantidade_total - item.quantidade_usada }}/{{ item.quantidade_total }}
                 </div>
               </td>
-              <td><span :class="['badge', badgeVenda(v).classe]">{{ badgeVenda(v).texto }}</span></td>
+              <td data-label="Status"><span :class="['badge', badgeVenda(v).classe]">{{ badgeVenda(v).texto }}</span></td>
             </tr>
           </tbody>
         </table>
@@ -61,14 +61,14 @@
         </thead>
         <tbody>
           <tr v-for="h in historico" :key="h.id">
-            <td>{{ formatarData(h.data_hora) }}</td>
-            <td>{{ h.procedimentos?.nome || '—' }}</td>
-            <td>{{ h.colaboradores?.nome || '—' }}</td>
-            <td><span :class="['badge', badgeClasse(h.status)]">{{ labelStatus(h.status) }}</span></td>
-            <td v-if="podeAcao('comanda_visualizar')">{{ h.pago ? labelPagamento(h) : (h.status === 'cancelado' ? '—' : 'Em aberto') }}</td>
-            <td v-if="podeAcao('comanda_visualizar')">{{ h.pago ? formatarValor(valorFinal(h)) : '—' }}</td>
+            <td data-label="Data">{{ formatarData(h.data_hora) }}</td>
+            <td data-label="Procedimento">{{ h.procedimentos?.nome || '—' }}</td>
+            <td data-label="Colaborador">{{ h.colaboradores?.nome || '—' }}</td>
+            <td data-label="Status"><span :class="['badge', badgeClasse(h.status)]">{{ labelStatus(h.status) }}</span></td>
+            <td v-if="podeAcao('comanda_visualizar')" data-label="Pagamento">{{ h.pago ? labelPagamento(h) : (h.status === 'cancelado' ? '—' : 'Em aberto') }}</td>
+            <td v-if="podeAcao('comanda_visualizar')" data-label="Valor">{{ h.pago ? formatarValor(valorFinal(h)) : '—' }}</td>
           </tr>
-          <tr v-if="!historico.length"><td colspan="6" style="color:var(--ink-muted);">Nenhum atendimento registrado.</td></tr>
+          <tr v-if="!historico.length" class="linha-vazia"><td colspan="6" style="color:var(--ink-muted);">Nenhum atendimento registrado.</td></tr>
         </tbody>
       </table>
     </div>

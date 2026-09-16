@@ -24,11 +24,11 @@
           </thead>
           <tbody>
             <tr v-for="p in filtrados" :key="p.id">
-              <td>{{ p.nome }}</td>
-              <td>{{ nomeCategoria(p.categoria_id) }}</td>
-              <td>{{ p.duracao_minutos }} min</td>
-              <td>{{ formatarMoeda(p.valor) }}</td>
-              <td>
+              <td data-label="Nome">{{ p.nome }}</td>
+              <td data-label="Categoria">{{ nomeCategoria(p.categoria_id) }}</td>
+              <td data-label="Duração">{{ p.duracao_minutos }} min</td>
+              <td data-label="Valor">{{ formatarMoeda(p.valor) }}</td>
+              <td data-label="Status">
                 <span :class="['badge', p.ativo ? 'badge-success' : 'badge-danger']">{{ p.ativo ? 'Ativo' : 'Inativo' }}</span>
               </td>
               <td v-if="ehAdmin" style="text-align:right; white-space:nowrap;">
@@ -36,7 +36,7 @@
                 <button class="btn btn-danger" @click="confirmarExclusaoProcedimento(p)">Excluir</button>
               </td>
             </tr>
-            <tr v-if="!filtrados.length"><td colspan="6" style="color:var(--ink-muted);">Nenhum procedimento encontrado.</td></tr>
+            <tr v-if="!filtrados.length" class="linha-vazia"><td colspan="6" style="color:var(--ink-muted);">Nenhum procedimento encontrado.</td></tr>
           </tbody>
         </table>
       </div>
@@ -51,9 +51,9 @@
           </thead>
           <tbody>
             <tr v-for="c in categorias" :key="c.id">
-              <td>{{ c.nome }}</td>
-              <td>{{ contagemPorCategoria(c.id) }}</td>
-              <td>
+              <td data-label="Nome">{{ c.nome }}</td>
+              <td data-label="Procedimentos">{{ contagemPorCategoria(c.id) }}</td>
+              <td data-label="Status">
                 <span :class="['badge', c.ativo ? 'badge-success' : 'badge-danger']">
                   {{ c.ativo ? 'Ativa' : 'Inativa' }}
                 </span>
@@ -63,7 +63,7 @@
                 <button class="btn btn-danger" @click="confirmarExclusaoCategoria(c)">Excluir</button>
               </td>
             </tr>
-            <tr v-if="!categorias.length"><td colspan="4" style="color:var(--ink-muted);">Nenhuma categoria cadastrada.</td></tr>
+            <tr v-if="!categorias.length" class="linha-vazia"><td colspan="4" style="color:var(--ink-muted);">Nenhuma categoria cadastrada.</td></tr>
           </tbody>
         </table>
       </div>

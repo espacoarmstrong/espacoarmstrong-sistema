@@ -12,24 +12,26 @@
     <div class="card tabela-wrap">
       <table>
         <thead>
-          <tr><th></th><th>Nome</th><th>Telefone</th><th>Status</th><th></th></tr>
+          <tr><th>Nome</th><th>Telefone</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="c in filtrados" :key="c.id">
-            <td>
-              <img v-if="c.foto_url" :src="c.foto_url" class="avatar" />
-              <div v-else class="avatar">{{ iniciais(c.nome) }}</div>
+            <td data-label="Nome">
+              <div class="linha-nome">
+                <img v-if="c.foto_url" :src="c.foto_url" class="avatar" />
+                <div v-else class="avatar">{{ iniciais(c.nome) }}</div>
+                <span>{{ c.nome }}</span>
+              </div>
             </td>
-            <td>{{ c.nome }}</td>
-            <td>{{ c.telefone || '—' }}</td>
-            <td><span :class="['badge', c.ativo ? 'badge-success' : 'badge-danger']">{{ c.ativo ? 'Ativo' : 'Inativo' }}</span></td>
+            <td data-label="Telefone">{{ c.telefone || '—' }}</td>
+            <td data-label="Status"><span :class="['badge', c.ativo ? 'badge-success' : 'badge-danger']">{{ c.ativo ? 'Ativo' : 'Inativo' }}</span></td>
             <td style="text-align:right;">
               <NuxtLink :to="`/clientes/${c.id}`" class="btn btn-ghost">Histórico</NuxtLink>
               <button v-if="podeAcao('clientes_editar')" class="btn btn-ghost" @click="abrirEdicao(c)">Editar</button>
               <button v-if="podeAcao('clientes_excluir')" class="btn btn-danger" @click="confirmarExclusao(c)">Excluir</button>
             </td>
           </tr>
-          <tr v-if="!filtrados.length"><td colspan="5" style="color:var(--ink-muted);">Nenhum cliente encontrado.</td></tr>
+          <tr v-if="!filtrados.length" class="linha-vazia"><td colspan="4" style="color:var(--ink-muted);">Nenhum cliente encontrado.</td></tr>
         </tbody>
       </table>
     </div>

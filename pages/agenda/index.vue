@@ -702,4 +702,41 @@ await carregarPeriodo();
 .mes-dia:hover { border-color: var(--primary); }
 .mes-dia.fora-mes { opacity: 0.35; cursor: default; }
 .mes-dia-badge { background: var(--primary); color: #fff; border-radius: 999px; font-size: 10px; padding: 1px 7px; }
+
+/* ---------- MOBILE ---------- */
+@media (max-width: 640px) {
+  .cabecalho > div { width: 100%; }
+  .cabecalho > div .btn { flex: 1 1 auto; justify-content: center; }
+
+  .barra { flex-direction: column; align-items: stretch; }
+  .visao-switch { width: 100%; }
+  .visao-switch button { flex: 1; padding: 10px 0; }
+  .navegacao { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+  .navegacao .input[type="date"] { grid-column: 1 / -1; width: 100% !important; }
+  .data-label { min-width: 0; }
+
+  /* Semana: rolagem horizontal com largura mínima legível por dia,
+     em vez de 7 colunas espremidas. */
+  .semana-grid {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(180px, 1fr);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 6px;
+  }
+  .semana-grid .dia-card { scroll-snap-align: start; }
+  .dia-card-item { font-size: 12px; padding: 7px 8px; }
+  .dia-card-lista { max-height: none; }
+
+  /* Dia: colunas um pouco mais estreitas, mas ainda legíveis */
+  .dia-grid { min-width: 0; }
+  .coluna-colab { min-width: 150px; }
+  .bloco-agendamento, .bloco-bloqueio { font-size: 11px; }
+
+  .mes-wrap { padding: 10px; }
+  .mes-grid { gap: 4px; }
+  .mes-dia { font-size: 12px; }
+}
 </style>

@@ -29,17 +29,17 @@
         </thead>
         <tbody>
           <tr v-for="c in filtradas" :key="c.id">
-            <td>{{ c.clientes?.nome || '—' }}</td>
-            <td>{{ c.procedimentos?.nome || '—' }}</td>
-            <td>{{ c.colaboradores?.nome || '—' }}</td>
-            <td>{{ formatarData(c.data_hora) }}</td>
-            <td>{{ formatarValor(valorFinal(c)) }}</td>
-            <td>
+            <td data-label="Cliente">{{ c.clientes?.nome || '—' }}</td>
+            <td data-label="Procedimento">{{ c.procedimentos?.nome || '—' }}</td>
+            <td data-label="Colaborador">{{ c.colaboradores?.nome || '—' }}</td>
+            <td data-label="Data">{{ formatarData(c.data_hora) }}</td>
+            <td data-label="Valor">{{ formatarValor(valorFinal(c)) }}</td>
+            <td data-label="Status">
               <span :class="['badge', c.pago ? 'badge-success' : 'badge-warning']">
                 {{ c.pago ? 'Paga' : 'Aberta' }}
               </span>
             </td>
-            <td>{{ c.pago ? labelPagamento(c) : '—' }}</td>
+            <td data-label="Pagamento">{{ c.pago ? labelPagamento(c) : '—' }}</td>
             <td style="text-align:right; white-space:nowrap;">
               <button v-if="podeAcao('comanda_registrar_pagamento') && c.forma_pagamento !== 'pacote'" class="btn btn-ghost" @click="abrirPagamento(c)">
                 {{ c.pago ? 'Editar pagamento' : 'Registrar pagamento' }}
@@ -47,7 +47,7 @@
               <button v-if="ehAdmin" class="btn btn-danger" @click="confirmarExclusaoComanda(c)">Excluir</button>
             </td>
           </tr>
-          <tr v-if="!filtradas.length"><td colspan="8" style="color:var(--ink-muted);">Nenhuma comanda encontrada.</td></tr>
+          <tr v-if="!filtradas.length" class="linha-vazia"><td colspan="8" style="color:var(--ink-muted);">Nenhuma comanda encontrada.</td></tr>
         </tbody>
       </table>
     </div>
@@ -257,4 +257,11 @@ await carregar();
 .visao-switch button.ativa { background: var(--primary); color: #fff; }
 .erro-msg { color: var(--danger); font-size: 13px; margin: -6px 0 10px; }
 .caixa-pacote { background: var(--primary-soft); color: var(--primary-dark); border-radius: 8px; padding: 12px 14px; font-size: 13px; margin: 0 0 14px; }
+
+@media (max-width: 640px) {
+  .barra { flex-direction: column; align-items: stretch; }
+  .visao-switch { width: 100%; }
+  .visao-switch button { flex: 1; padding: 10px 0; }
+  .barra .input { max-width: 100% !important; }
+}
 </style>

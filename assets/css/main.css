@@ -145,6 +145,8 @@ tr:last-child td { border-bottom: none; }
 }
 .upload-foto .btn { font-size: 13px; padding: 7px 12px; }
 
+.linha-nome { display: flex; align-items: center; gap: 10px; }
+
 .tabela-wrap { padding: 4px; overflow-x: auto; }
 .tabela-wrap table { min-width: 560px; }
 
@@ -171,11 +173,74 @@ tr:last-child td { border-bottom: none; }
 
   .linha-dupla { flex-direction: column; gap: 0; }
 
-  th, td { padding: 8px 10px; font-size: 13px; }
-
   .btn { padding: 10px 16px; font-size: 14px; }
 
   .card { border-radius: 12px; }
+
+  /* Cabeçalho da página: título em uma linha, ações ocupando a largura toda */
+  .cabecalho h1 { flex: 1 1 100%; }
+  .cabecalho > div { width: 100%; }
+  .cabecalho > .btn, .cabecalho > div > .btn { flex: 1 1 auto; justify-content: center; }
+
+  /* Campos de busca/filtro: largura total em vez do max-width do desktop */
+  .field { max-width: 100% !important; }
+
+  /* Tabelas viram uma lista de cards: cada campo fica em sua própria linha,
+     com o rótulo em cima, para o conteúdo nunca ficar espremido. */
+  .tabela-wrap {
+    overflow-x: visible;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .tabela-wrap table { min-width: 0; width: 100%; border-collapse: separate; border-spacing: 0; }
+  .tabela-wrap thead { display: none; }
+  .tabela-wrap tbody { display: flex; flex-direction: column; gap: 10px; }
+  .tabela-wrap tbody tr {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 4px 14px;
+  }
+  .tabela-wrap tbody td {
+    display: block;
+    width: auto;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+  .tabela-wrap tbody td:last-child { border-bottom: none; }
+  .tabela-wrap tbody td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ink-muted);
+    margin-bottom: 3px;
+  }
+  /* célula de ações (sem data-label): botões lado a lado, ocupando a largura toda */
+  .tabela-wrap tbody td:not([data-label]) {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 12px;
+  }
+  .tabela-wrap tbody td:not([data-label]) .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 120px;
+  }
+  /* linha de "nenhum registro": mantém o visual de card discreto */
+  .tabela-wrap tbody tr.linha-vazia { box-shadow: none; }
+  .tabela-wrap tbody tr.linha-vazia td { text-align: center !important; padding: 16px 0; }
 }
 
 
