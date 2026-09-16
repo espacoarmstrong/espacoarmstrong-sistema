@@ -64,6 +64,7 @@
               <td style="text-align:right; white-space:nowrap;">
                 <button v-if="ehAdmin && v.status === 'ativo' && estaVencido(v)" class="btn btn-ghost" @click="abrirReativacao(v)">Reativar / estender</button>
                 <button v-if="ehAdmin && v.status === 'ativo'" class="btn btn-danger" @click="confirmarCancelamento(v)">Cancelar</button>
+                <button v-if="ehAdmin" class="btn btn-danger" @click="confirmarExclusaoVenda(v)">Excluir</button>
               </td>
             </tr>
             <tr v-if="!vendasFiltradas.length" class="linha-vazia"><td colspan="7" style="color:var(--ink-muted);">Nenhuma venda de pacote encontrada.</td></tr>
@@ -147,8 +148,21 @@
       v-if="excluindoPacote"
       titulo="Excluir pacote?"
       mensagem="Só é possível excluir pacotes que nunca foram vendidos. Se já houve vendas, prefira desativá-lo em vez de excluir."
+      dupla
+      texto-confirmacao="Sim, tenho certeza e quero excluir este pacote do catálogo."
       @confirmar="excluirPacote"
       @cancelar="excluindoPacote = null"
+    />
+
+    <!-- MODAL: excluir venda de pacote -->
+    <ConfirmarExclusao
+      v-if="excluindoVenda"
+      titulo="Excluir esta venda de pacote?"
+      mensagem="Isso apaga definitivamente a venda, o saldo de sessões e o histórico de uso. Só é possível excluir vendas que nunca foram usadas em atendimentos — se já houve uso, prefira Cancelar."
+      dupla
+      texto-confirmacao="Sim, entendo que é definitivo e quero excluir esta venda mesmo assim."
+      @confirmar="excluirVenda"
+      @cancelar="excluindoVenda = null"
     />
 
     <!-- MODAL: cancelar venda -->
@@ -389,6 +403,21 @@ const vendasFiltradas = computed(() => {
     (v) => (v.clientes?.nome || "").toLowerCase().includes(termo) || (v.pacote_nome || "").toLowerCase().includes(termo)
   );
 });
+
+const excluindoVenda = ref<any>(null);
+const confirmarExclusaoVenda = (v: any) => { excluindoVenda.value = v; };
+const excluirVenda = async () => {
+  const { error } = await supabase.from("pacote_vendas").delete().eq("id", excluindoVenda.value.id);
+  excluindoVenda.value = null;
+  if (error) {
+    toastErro(error.code === "23503"
+      ? "Este pacote já teve sessões usadas em atendimentos. Cancele em vez de excluir."
+      : "Não foi possível excluir a venda.");
+    return;
+  }
+  await carregarVendas();
+  sucesso("Venda de pacote excluída com sucesso.");
+};
 
 const confirmarCancelamento = (v: any) => { cancelando.value = v; };
 const cancelarVenda = async () => {

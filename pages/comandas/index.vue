@@ -241,7 +241,14 @@ const confirmarExclusaoComanda = (c: any) => { excluindo.value = c; };
 const excluirComanda = async () => {
   const { error } = await supabase.from("agendamentos").delete().eq("id", excluindo.value.id);
   excluindo.value = null;
-  if (error) { toastErro("Não foi possível excluir a comanda."); return; }
+  if (error) {
+    toastErro(
+      error.code === "23503"
+        ? "Esta comanda está vinculada a outro registro e não pôde ser excluída."
+        : `Não foi possível excluir a comanda: ${error.message}`
+    );
+    return;
+  }
   await carregar();
   sucesso("Comanda excluída com sucesso.");
 };

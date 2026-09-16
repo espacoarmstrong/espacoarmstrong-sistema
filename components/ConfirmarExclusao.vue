@@ -6,7 +6,7 @@
 
       <label v-if="dupla" class="linha-check-confirm">
         <input type="checkbox" v-model="confirmado" />
-        Sim, entendo que já está pago e quero excluir mesmo assim.
+        {{ textoConfirmacao || "Sim, tenho certeza e quero excluir mesmo assim." }}
       </label>
 
       <div style="display:flex; gap:10px; margin-top: 16px;">
@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ titulo: string; mensagem: string; dupla?: boolean }>();
+defineProps<{ titulo: string; mensagem: string; dupla?: boolean; textoConfirmacao?: string }>();
 defineEmits(["confirmar", "cancelar"]);
 const confirmado = ref(false);
 </script>

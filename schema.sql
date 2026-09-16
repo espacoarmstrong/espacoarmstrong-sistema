@@ -199,7 +199,7 @@ create table public.agendamentos (
   pago boolean not null default false,
   percentual_comissao numeric(5,2),
   valor_comissao numeric(10,2),
-  remuneracao_pagamento_id uuid references public.remuneracoes_pagamentos(id),
+  remuneracao_pagamento_id uuid references public.remuneracoes_pagamentos(id) on delete set null,
   criado_por uuid references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -727,6 +727,8 @@ create policy clientes_delete on public.clientes for delete
 alter table public.remuneracoes_pagamentos enable row level security;
 create policy remuneracoes_select on public.remuneracoes_pagamentos for select
   using (public.tem_permissao('remuneracao_visualizar'));
+create policy remuneracoes_delete on public.remuneracoes_pagamentos for delete
+  using (public.is_admin());
 
 -- AGENDAMENTOS (admin sempre tem acesso; colaborador precisa da permissão concedida)
 create policy agendamentos_select on public.agendamentos for select

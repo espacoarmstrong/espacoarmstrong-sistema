@@ -36,7 +36,7 @@
     <div v-if="aba === 'historico'" class="card tabela-wrap">
       <table>
         <thead>
-          <tr><th>Colaborador</th><th>Data</th><th>Valor</th><th>Observações</th></tr>
+          <tr><th>Colaborador</th><th>Data</th><th>Valor</th><th>Observações</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="p in pagamentos" :key="p.id">
@@ -44,8 +44,11 @@
             <td data-label="Data">{{ formatarData(p.pago_em) }}</td>
             <td data-label="Valor">{{ formatarValor(p.valor_total) }}</td>
             <td data-label="Observações">{{ p.observacoes || '—' }}</td>
+            <td style="text-align:right;">
+              <button v-if="ehAdmin" class="btn btn-danger" @click="confirmarExclusaoPagamento(p)">Excluir</button>
+            </td>
           </tr>
-          <tr v-if="!pagamentos.length" class="linha-vazia"><td colspan="4" style="color:var(--ink-muted);">Nenhum pagamento registrado ainda.</td></tr>
+          <tr v-if="!pagamentos.length" class="linha-vazia"><td colspan="5" style="color:var(--ink-muted);">Nenhum pagamento registrado ainda.</td></tr>
         </tbody>
       </table>
     </div>
@@ -111,12 +114,23 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL: excluir pagamento de remuneração -->
+    <ConfirmarExclusao
+      v-if="excluindoPagamento"
+      titulo="Excluir este pagamento?"
+      :mensagem="`${excluindoPagamento.colaboradores?.nome || '—'} · ${formatarValor(excluindoPagamento.valor_total)} pago em ${formatarData(excluindoPagamento.pago_em)}. Os atendimentos incluídos voltam para a lista de pendentes.`"
+      dupla
+      texto-confirmacao="Sim, entendo que já está pago e quero excluir mesmo assim."
+      @confirmar="excluirPagamento"
+      @cancelar="excluindoPagamento = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 const supabase = useSupabaseClient();
-const { podeAcao } = useUsuario();
+const { podeAcao, ehAdmin } = useUsuario();
 const { sucesso, erro: toastErro } = useToast();
 
 const aba = ref<"pendentes" | "historico">("pendentes");
@@ -194,6 +208,16 @@ const salvarPagamento = async () => {
   pagando.value = null;
   await Promise.all([carregarPendentes(), carregarHistorico()]);
   sucesso("Pagamento de remuneração registrado com sucesso.");
+};
+
+const excluindoPagamento = ref<any>(null);
+const confirmarExclusaoPagamento = (p: any) => { excluindoPagamento.value = p; };
+const excluirPagamento = async () => {
+  const { error } = await supabase.from("remuneracoes_pagamentos").delete().eq("id", excluindoPagamento.value.id);
+  excluindoPagamento.value = null;
+  if (error) { toastErro("Não foi possível excluir o pagamento."); return; }
+  await Promise.all([carregarPendentes(), carregarHistorico()]);
+  sucesso("Pagamento excluído. Os atendimentos voltaram para pendentes.");
 };
 
 const formatarValor = (v: number) => (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
